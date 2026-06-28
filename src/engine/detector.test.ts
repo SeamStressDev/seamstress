@@ -68,6 +68,30 @@ describe("heuristic — server-scope refinement", () => {
     expect(c.hits).toContain("penalty:ui");
   });
 
+  it("nominates a non-JS auth seam (Django JWT backend) the old JS-tuned signals missed", () => {
+    // Build 3 non-Stripe finding: the heuristic, tuned on JS/Stripe idioms,
+    // dropped Django's authentication backend. Backend-language files get the
+    // server bonus and cross-stack auth idioms now register.
+    const c = scoreSource(
+      "conduit/apps/authentication/backends.py",
+      `import jwt\nfrom django.conf import settings\n` +
+        `def authenticate(self, request):\n  token = request.META.get('HTTP_AUTHORIZATION')\n` +
+        `  payload = jwt.decode(token, settings.SECRET_KEY)\n  return (user, token)`,
+    );
+    expect(c.score).toBeGreaterThanOrEqual(DEFAULT_CANDIDATE_THRESHOLD);
+    expect(c.hits).toContain("bonus:server");
+  });
+
+  it("nominates a DRF view with declarative permissions + deletion (no imperative if-check)", () => {
+    const c = scoreSource(
+      "conduit/apps/articles/views.py",
+      `class ArticleViewSet(viewsets.ModelViewSet):\n` +
+        `  permission_classes = [IsAuthenticatedOrReadOnly]\n` +
+        `  def perform_destroy(self, instance):\n    instance.delete()`,
+    );
+    expect(c.score).toBeGreaterThanOrEqual(DEFAULT_CANDIDATE_THRESHOLD);
+  });
+
   it("does not penalize a server file that merely contains the word 'view' (e.g. Django)", () => {
     const c = scoreSource(
       "app/views.py",

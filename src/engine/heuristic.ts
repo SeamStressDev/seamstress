@@ -34,6 +34,19 @@ const SOURCE_EXTENSIONS = new Set([
 const SKIP_DIRS = new Set([
   "node_modules", ".git", "dist", "build", ".next", "out", "coverage",
   "vendor", "venv", ".venv", "__pycache__", ".turbo", "tmp", "public", "assets",
+  "migrations", // generated schema diffs — never a seam, pure noise
+]);
+
+/**
+ * Backend-language extensions. Files in these languages are inherently
+ * server-side — the "UI surface that only triggers a server op" false-positive
+ * class is a JS/TSX phenomenon — so they earn the server bonus directly. This is
+ * what lets the heuristic generalize off the JS/Stripe stack (Phase 2 / Build 3
+ * non-Stripe finding: Django `authentication/` and `views.py` were missed
+ * because the server signal was tuned to JS path conventions).
+ */
+const BACKEND_EXTENSIONS = new Set([
+  ".py", ".rb", ".go", ".php", ".java", ".cs", ".rs", ".ex", ".exs",
 ]);
 
 /** A scored candidate file. */
@@ -71,7 +84,9 @@ const PATH_SIGNALS: Signal[] = [
 const CONTENT_SIGNALS: Signal[] = [
   [/from ["']stripe["']|new Stripe\(|import stripe|require\(["']stripe["']\)/i, 3, "import:payment"],
   [/stripe\.(checkout|billingPortal|subscriptions|paymentIntents|charges|refunds)/i, 3, "api:payment"],
-  [/next-auth|getServerSession|passport|devise|omniauth|from ["']@?\/?auth["']|authlib|jsonwebtoken/i, 2, "import:auth"],
+  // Auth idioms across stacks — JS libs AND Python/Ruby/DRF/Go conventions, so
+  // the content signal isn't blind to non-JS auth (the non-Stripe finding).
+  [/next-auth|getServerSession|passport|devise|omniauth|from ["']@?\/?auth["']|authlib|jsonwebtoken|import jwt|jwt\.(decode|encode)|authenticate\(|set_password|check_password|permission_classes|IsAuthenticated|@login_required|before_action|current_user|request\.user/i, 2, "import:auth"],
   [/"use server"|'use server'/, 1, "server-action"],
   [/authorize|refund|chargeback|RLS|row.level.security/i, 2, "kw:authorize/refund"],
   [/password|bcrypt|argon2|hashpw|set_password/i, 1, "kw:credential"],
@@ -86,7 +101,7 @@ const CONTENT_SIGNALS: Signal[] = [
 const RISK_SHAPES: Signal[] = [
   [/\b(DELETE FROM|\.delete\(|\.deleteMany\(|\.destroy\b|\.remove\(|\.drop\()/i, 1, "shape:db-delete"],
   [/\b(INSERT INTO|UPDATE \w+ SET|\.create\(|\.update\(|\.save\(|\.insert\()/i, 1, "shape:db-write"],
-  [/\bif\b[^\n]{0,80}\b(role|permission|owner|is_?admin|is_?staff|can_|allowed|authorize|access|current_?user)\b/i, 1, "shape:access-branch"],
+  [/\bif\b[^\n]{0,80}\b(role|permission|owner|is_?admin|is_?staff|can_|allowed|authorize|access|current_?user)\b|permission_classes\s*=|before_action|@login_required|check_object_permissions|IsAuthenticated/i, 1, "shape:access-branch"],
   [/\b(balance|amount|price|total|cost|credits?|quota|wallet)\b[^\n]{0,40}[-+*/]=?/i, 1, "shape:money-math"],
   [/\b(charge|capture|payout|transfer|debit|credit)\b[^\n]{0,40}\(/i, 1, "shape:value-move"],
 ];
@@ -129,8 +144,10 @@ export function scoreSource(path: string, content: string): Candidate {
   if (ui) {
     score -= 3; // REFINEMENT: push UI-trigger surfaces below threshold.
     hits.push("penalty:ui");
-  } else if (SERVER_PATH.test(path)) {
-    score += 2; // REFINEMENT: server code is where real seams live.
+  } else if (SERVER_PATH.test(path) || BACKEND_EXTENSIONS.has(extname(path))) {
+    // REFINEMENT: server code is where real seams live — by JS path convention
+    // OR by being written in a backend language (generalizes off the JS stack).
+    score += 2;
     hits.push("bonus:server");
   }
 
