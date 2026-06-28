@@ -16,6 +16,130 @@ import { mapWithConcurrency } from "./concurrency.js";
 import { assessCoverage, mapSeams } from "./map.js";
 import type { SeamMap } from "./map.js";
 import { renderSeamMap } from "./report.js";
+import type { BlastRadiusRank, Cost, Finding, Seam, VerificationResult } from "../types/index.js";
+
+const ZERO_COST: Cost = {
+  totalInputTokens: 0,
+  totalOutputTokens: 0,
+  totalCacheCreationInputTokens: 0,
+  totalCacheReadInputTokens: 0,
+  totalCostUsd: 0,
+  costUsdByModel: {},
+  costUsdByPurpose: { seam_detection: 0, critic: 0, synthesis: 0, verification: 0, other: 0 },
+};
+
+/** Build a synthetic SeamMap from (description, blastRadius, verified?) tuples for render tests. */
+function mapFrom(
+  specs: { desc: string; blast: BlastRadiusRank; verified: boolean }[],
+): SeamMap {
+  const seam: Seam = {
+    id: "seam-1",
+    kind: "auth",
+    label: "actions/role.ts",
+    sources: [{ path: "actions/role.ts", startLine: 1, endLine: 9 }],
+    inputText: "x",
+  };
+  const findings: Finding[] = specs.map((s, i) => ({
+    id: `seam-1:finding-${i + 1}`,
+    seamId: "seam-1",
+    description: s.desc,
+    reasoning: "r",
+    blastRadius: s.blast,
+  }));
+  const verifications: VerificationResult[] = specs.map((s, i) => ({
+    findingId: `seam-1:finding-${i + 1}`,
+    status: s.verified ? "verified_real" : "judgment_call",
+    evidence: [{ quotedCode: `code-${i}`, location: { path: "actions/role.ts", startLine: 1 } }],
+    note: "n",
+  }));
+  return {
+    repoPath: "/x",
+    filesScanned: 10,
+    candidatesFound: 1,
+    seams: [seam],
+    review: {
+      target: { repo: "demo", commit: "c" },
+      seams: [seam],
+      findings,
+      verifications,
+      usages: [],
+      cost: ZERO_COST,
+      synthesis: "s",
+    },
+    erroredSeams: [],
+    detectionCost: ZERO_COST,
+    reviewCost: ZERO_COST,
+    totalCost: ZERO_COST,
+    coverage: { stack: "JavaScript/TypeScript", wellTuned: true, caveat: null },
+  };
+}
+
+/** Slice out the executive-summary section ("What matters most" → next "## "). */
+function execSummary(report: string): string {
+  const start = report.indexOf("## ⚡ What matters most");
+  const after = report.indexOf("\n## ", start + 1);
+  return report.slice(start, after === -1 ? undefined : after);
+}
+
+describe("renderSeamMap — executive summary leads with the punch (Fix 1)", () => {
+  const CRIT = "anyone logged in can set their own role to admin";
+  const HIGH = "priceId is accepted from the caller with no allowlist";
+  const LOW = "error masking hides the real failure cause";
+  const JUDG = "depends on whether cascade deletes are intended";
+
+  const report = renderSeamMap(
+    mapFrom([
+      { desc: CRIT, blast: "critical", verified: true },
+      { desc: HIGH, blast: "high", verified: true },
+      { desc: LOW, blast: "low", verified: true },
+      { desc: JUDG, blast: "medium", verified: false },
+    ]),
+  );
+
+  it("puts the critical + high verified findings in the executive summary", () => {
+    const exec = execSummary(report);
+    expect(exec).toContain(CRIT);
+    expect(exec).toContain(HIGH);
+    expect(exec).toMatch(/could get you owned/i);
+  });
+
+  it("does NOT put the low-severity tail or judgment calls in the executive summary", () => {
+    const exec = execSummary(report);
+    expect(exec).not.toContain(LOW);
+    expect(exec).not.toContain(JUDG);
+  });
+
+  it("still includes the low tail and judgment calls, collapsed, further down", () => {
+    // They remain in the report (honest) — just demoted below the headline.
+    const tail = report.slice(report.indexOf("Lower-severity"));
+    expect(tail).toContain(LOW);
+    expect(report).toContain(JUDG);
+    expect(report.indexOf(CRIT)).toBeLessThan(report.indexOf(LOW));
+  });
+
+  it("renders the honest 'none found' summary when there are no criticals/highs", () => {
+    const r = renderSeamMap(
+      mapFrom([
+        { desc: LOW, blast: "low", verified: true },
+        { desc: JUDG, blast: "medium", verified: false },
+      ]),
+    );
+    const exec = execSummary(r);
+    expect(exec).toMatch(/no critical or high-severity issues found/i);
+    expect(exec).not.toContain(LOW); // tail still demoted out of the summary
+    expect(r).toContain(LOW); // but present below
+  });
+
+  it("caps the collapsed tail with a '+N more' line", () => {
+    const many = Array.from({ length: 12 }, (_, i) => ({
+      desc: `low note ${i}`,
+      blast: "low" as BlastRadiusRank,
+      verified: true,
+    }));
+    const r = renderSeamMap(mapFrom([{ desc: CRIT, blast: "critical", verified: true }, ...many]));
+    expect(r).toMatch(/and \d+ more lower-severity/i);
+  });
+});
 
 const tmpRepos: string[] = [];
 afterAll(() => tmpRepos.forEach((d) => rmSync(d, { recursive: true, force: true })));

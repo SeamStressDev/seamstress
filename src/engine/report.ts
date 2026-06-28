@@ -5,10 +5,15 @@
  * - Plain language, consequence-first. The buyer speaks fear, not methodology:
  *   "anyone logged in can change their own role to admin", never "an IDOR in the
  *   portal action" or "the synthesis surfaced…". Internal jargon is softened.
+ * - Lead with the punch. An executive summary of ONLY the critical+high verified
+ *   findings comes first — the 2-3 things that could get the builder owned — so a
+ *   skimming founder sees them before a wall of lower-severity notes. The whole
+ *   wedge is "judgment, not noise"; the report has to embody it.
  * - Verified issues are the headline, each backed by the exact quoted code — the
- *   trust signal that separates SeamStress from a scanner that guesses. Judgment
- *   calls are noted separately as "worth a look"; nothing unverified is presented
- *   as fact.
+ *   trust signal that separates SeamStress from a scanner that guesses. The
+ *   medium/low tail and judgment calls ("worth a look") are kept below, collapsed
+ *   to compact one-liners so they don't drown the headline. Nothing unverified is
+ *   presented as fact.
  * - The coverage caveat is shown honestly when the stack is unfamiliar.
  *
  * COGS is deliberately NOT rendered here — it is an operator concern the runner
@@ -85,6 +90,22 @@ function renderFinding(map: SeamMap, finding: Finding, verifications: Verificati
   );
 }
 
+/** Most lower-severity / judgment one-liners shown before collapsing to "+N more". */
+const TAIL_CAP = 8;
+
+/** A compact one-line consequence for a finding (severity badge + plain text). */
+function oneLiner(map: SeamMap, finding: Finding): string {
+  return `- **${BLAST_LABEL[finding.blastRadius]}** (${KIND_LABEL[kindOf(map, finding.seamId)]}) — ${softenJargon(finding.description)}`;
+}
+
+/** Render a compact, capped list of one-liners with a "+N more" tail. */
+function compactList(map: SeamMap, findings: Finding[], moreLabel: string): string[] {
+  const shown = findings.slice(0, TAIL_CAP).map((f) => oneLiner(map, f));
+  const extra = findings.length - TAIL_CAP;
+  if (extra > 0) shown.push(`- _… and ${extra} more ${moreLabel}._`);
+  return shown;
+}
+
 /** Render the full builder-facing risk map as markdown. */
 export function renderSeamMap(map: SeamMap): string {
   const { review } = map;
@@ -97,6 +118,11 @@ export function renderSeamMap(map: SeamMap): string {
 
   const verified = byStatus("verified_real");
   const judgment = byStatus("judgment_call");
+
+  // The punch vs. the tail: criticals + highs lead; medium/low get collapsed.
+  const isTopTier = (f: Finding): boolean => f.blastRadius === "critical" || f.blastRadius === "high";
+  const headline = verified.filter(isTopTier);
+  const lowerVerified = verified.filter((f) => !isTopTier(f));
 
   const counts = { critical: 0, high: 0, medium: 0, low: 0 };
   for (const f of verified) counts[f.blastRadius] += 1;
@@ -128,20 +154,46 @@ export function renderSeamMap(map: SeamMap): string {
     lines.push("");
   }
 
-  lines.push("---");
+  // ── Executive summary: the handful that actually matter, first. ──
+  lines.push("## ⚡ What matters most");
   lines.push("");
-  lines.push("## 🚨 Verified issues — found in your real code");
-  lines.push("");
-  if (verified.length === 0) {
+  if (headline.length === 0) {
     lines.push(
-      "No verified issues. The seams below were reviewed and the checks held up " +
-        "against your code. (This is a floor on risk, not a guarantee — see coverage.)",
+      "**No critical or high-severity issues found.** Nothing here can get you owned. " +
+        "There's a lower-severity tail below worth a skim.",
     );
     lines.push("");
   } else {
-    lines.push("Each of these is confirmed against your code, with the exact lines quoted as proof.");
+    lines.push(
+      `**${headline.length} issue${headline.length === 1 ? "" : "s"} could get you owned** — ` +
+        "each verified against your real code (full detail + the quoted proof below):",
+    );
     lines.push("");
-    for (const f of verified) lines.push(renderFinding(map, f, verifications));
+    headline.forEach((f, i) => {
+      lines.push(`${i + 1}. ${BLAST_LABEL[f.blastRadius]} — ${softenJargon(f.description)}`);
+    });
+    lines.push("");
+  }
+
+  // ── Full detail for the issues that matter. ──
+  if (headline.length > 0) {
+    lines.push("---");
+    lines.push("");
+    lines.push("## 🚨 The issues that matter — verified in your real code");
+    lines.push("");
+    lines.push("Each is confirmed against your code, with the exact lines quoted as proof.");
+    lines.push("");
+    for (const f of headline) lines.push(renderFinding(map, f, verifications));
+  }
+
+  // ── The tail: real, honest, but demoted so it doesn't drown the headline. ──
+  if (lowerVerified.length > 0) {
+    lines.push("## 🔧 Lower-severity verified notes");
+    lines.push("");
+    lines.push("Real and confirmed, but lower blast radius — worth fixing, not emergencies.");
+    lines.push("");
+    lines.push(...compactList(map, lowerVerified, "lower-severity verified notes"));
+    lines.push("");
   }
 
   if (judgment.length > 0) {
@@ -149,12 +201,7 @@ export function renderSeamMap(map: SeamMap): string {
     lines.push("");
     lines.push("Real, but they depend on intent or context only you own.");
     lines.push("");
-    for (const f of judgment) {
-      const kind = kindOf(map, f.seamId);
-      lines.push(
-        `- **${BLAST_LABEL[f.blastRadius]}** (${KIND_LABEL[kind]}) — ${softenJargon(f.description)}`,
-      );
-    }
+    lines.push(...compactList(map, judgment, "judgment calls"));
     lines.push("");
   }
 
