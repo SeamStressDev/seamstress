@@ -11,6 +11,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { TokenUsage, TokenUsagePurpose } from "../types/index.js";
 import { toTokenUsage } from "./pricing.js";
+import { DEFAULT_MAX_RETRIES, withRetry } from "./retry.js";
 
 /** Default cheap model for smoke tests and trivial calls. */
 export const DEFAULT_SMOKE_MODEL = "claude-haiku-4-5";
@@ -105,40 +106,66 @@ export interface LlmClientOptions {
   apiKey?: string;
   /** Inject a pre-built (or mock) Anthropic client — used by tests. */
   client?: Anthropic;
+  /**
+   * Max retries on transient API errors, on top of the initial attempt
+   * (default {@link DEFAULT_MAX_RETRIES}). We own retry at this layer and turn
+   * the SDK's own retry OFF so there is exactly one bounded layer.
+   */
+  maxRetries?: number;
+  /** Sleep used between retries; injectable so tests don't actually wait. */
+  sleep?: (ms: number) => Promise<void>;
 }
 
 /**
  * A thin wrapper over the Anthropic SDK. Reads the API key from the environment
- * (`ANTHROPIC_API_KEY`) — it is never hardcoded and never logged.
+ * (`ANTHROPIC_API_KEY`) — it is never hardcoded and never logged. Every call is
+ * wrapped in bounded retry-with-backoff (see `retry.ts`) so a transient blip
+ * mid-review doesn't tank the whole run.
  */
 export class LlmClient {
   private readonly client: Anthropic;
+  private readonly maxRetries: number;
+  private readonly sleep: ((ms: number) => Promise<void>) | undefined;
 
   constructor(options: LlmClientOptions = {}) {
+    this.maxRetries = options.maxRetries ?? DEFAULT_MAX_RETRIES;
+    this.sleep = options.sleep;
+
     if (options.client) {
       this.client = options.client;
       return;
     }
     const key = options.apiKey ?? process.env["ANTHROPIC_API_KEY"];
     if (!key) throw new MissingApiKeyError();
-    this.client = new Anthropic({ apiKey: key });
+    // maxRetries: 0 disables the SDK's own retry — we retry at the app layer
+    // (one bounded layer, deterministically testable) instead of stacking two.
+    this.client = new Anthropic({ apiKey: key, maxRetries: 0 });
   }
 
   /**
-   * Make one model call. Returns the response text plus the real token usage —
-   * the clean COGS primitive the whole engine bills against. API/transport
-   * errors from the SDK propagate to the caller (not swallowed).
+   * Make one model call, retrying transient failures with backoff. Returns the
+   * response text plus the real token usage — the clean COGS primitive the whole
+   * engine bills against. Permanent errors (400/401/...) fail fast on the first
+   * attempt; a transient error that survives the retry budget propagates to the
+   * caller (the run fails cleanly, not silently).
    */
   async callModel(params: CallModelParams): Promise<CallModelResult> {
     const { model, messages, system, maxTokens = 4096, purpose = "other" } =
       params;
 
-    const response = await this.client.messages.create({
-      model,
-      max_tokens: maxTokens,
-      ...(system !== undefined ? { system } : {}),
-      messages,
-    });
+    const response = await withRetry(
+      () =>
+        this.client.messages.create({
+          model,
+          max_tokens: maxTokens,
+          ...(system !== undefined ? { system } : {}),
+          messages,
+        }),
+      {
+        maxRetries: this.maxRetries,
+        ...(this.sleep !== undefined ? { sleep: this.sleep } : {}),
+      },
+    );
 
     return extractCallResult(response, purpose);
   }

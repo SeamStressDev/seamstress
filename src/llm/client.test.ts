@@ -4,6 +4,7 @@
  * this build is the smoke test in src/index.ts, run by hand with a key.)
  */
 
+import AnthropicSdk from "@anthropic-ai/sdk";
 import type Anthropic from "@anthropic-ai/sdk";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -101,5 +102,46 @@ describe("LlmClient", () => {
         messages: [{ role: "user", content: "hi" }],
       }),
     ).rejects.toThrow("overloaded_error");
+  });
+
+  it("retries a transient failure through callModel and then succeeds", async () => {
+    // The primitive is wrapped in bounded retry, so every pipeline stage inherits
+    // it. A 503 on the first attempt should be retried (no real wait — sleep is a
+    // no-op) and the call should still resolve to a priced result.
+    const create = vi
+      .fn()
+      .mockRejectedValueOnce(
+        new AnthropicSdk.APIError(503, undefined, "overloaded", new Headers()),
+      )
+      .mockResolvedValue(mockResponse);
+    const fakeClient = { messages: { create } } as unknown as Anthropic;
+    const llm = new LlmClient({ client: fakeClient, sleep: async () => {} });
+
+    const result = await llm.callModel({
+      model: "claude-haiku-4-5",
+      purpose: "critic",
+      messages: [{ role: "user", content: "hi" }],
+    });
+
+    expect(create).toHaveBeenCalledTimes(2); // one retry, then success
+    expect(result.usage.inputTokens).toBe(123);
+  });
+
+  it("does not retry a permanent 401 through callModel", async () => {
+    const create = vi
+      .fn()
+      .mockRejectedValue(
+        new AnthropicSdk.APIError(401, undefined, "unauthorized", new Headers()),
+      );
+    const fakeClient = { messages: { create } } as unknown as Anthropic;
+    const llm = new LlmClient({ client: fakeClient, sleep: async () => {} });
+
+    await expect(
+      llm.callModel({
+        model: "claude-haiku-4-5",
+        messages: [{ role: "user", content: "hi" }],
+      }),
+    ).rejects.toBeInstanceOf(AnthropicSdk.APIError);
+    expect(create).toHaveBeenCalledTimes(1); // failed fast, no wasted retries
   });
 });

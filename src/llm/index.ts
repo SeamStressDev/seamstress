@@ -24,3 +24,10 @@ export {
   aggregateCost,
 } from "./pricing.js";
 export type { ModelPricing, RawUsage } from "./pricing.js";
+export {
+  withRetry,
+  isRetryableError,
+  computeBackoffMs,
+  DEFAULT_MAX_RETRIES,
+} from "./retry.js";
+export type { RetryOptions, BackoffOptions } from "./retry.js";
