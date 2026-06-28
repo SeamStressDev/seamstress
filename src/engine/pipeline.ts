@@ -123,10 +123,20 @@ export async function reviewSeam(
 
 /**
  * Merge per-seam reviews into one pooled {@link ReviewResult}. Finding IDs are
- * namespaced by seam (`<seamId>:finding-N`) so the merged `findings` /
- * `verifications` don't collide across seams and `effectiveStatus` still
- * resolves each finding to its own verification. `extraUsages` lets a caller
- * fold in upstream cost (e.g. detection) when pooling totals.
+ * namespaced so the merged `findings` / `verifications` don't collide across
+ * seams and `effectiveStatus` still resolves each finding to its own
+ * verification. `extraUsages` lets a caller fold in upstream cost (e.g.
+ * detection) when pooling totals.
+ *
+ * TRUST-GATE INVARIANT (added after the trust-gate trio): the namespace prefix
+ * is keyed on the seam's POSITION (`s<i>:`), not just `seam.id`. Two distinct
+ * source paths can slugify to the SAME `seam.id` (`seamIdFor` lowercases and
+ * collapses non-alphanumerics, so `a/Check.ts` and `a-check.ts` both become
+ * `seam-a-check-ts`). A shared `seam.id:` prefix would alias `finding-1` across
+ * the two seams, and the first-match `.find()` in `effectiveStatus` / the report
+ * would bind ONE finding's verification + evidence to the OTHER finding — the
+ * "evidence attaches to the wrong finding" catastrophe. The index is unique by
+ * construction, so no slug collision can ever produce a duplicate finding ID.
  *
  * Exported so the end-to-end map can reuse the exact same merge after its own
  * per-seam-isolated review loop.
@@ -142,9 +152,10 @@ export function mergeReviews(
   const usages: TokenUsage[] = [...extraUsages];
   const summaries: string[] = [];
 
-  for (const { seam, result } of pairs) {
+  pairs.forEach(({ seam, result }, i) => {
     seams.push(seam);
-    const prefix = `${seam.id}:`;
+    // Position-keyed prefix — unique even when two seams share a slugged id.
+    const prefix = `s${i}:${seam.id}:`;
     for (const f of result.findings) findings.push({ ...f, id: `${prefix}${f.id}` });
     for (const v of result.verifications) {
       verifications.push({ ...v, findingId: `${prefix}${v.findingId}` });
@@ -153,7 +164,7 @@ export function mergeReviews(
     if (result.findings.length > 0 || result.synthesis) {
       summaries.push(`[${seam.label}] ${result.synthesis}`);
     }
-  }
+  });
 
   return {
     target,

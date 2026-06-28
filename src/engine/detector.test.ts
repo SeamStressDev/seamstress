@@ -9,6 +9,7 @@
 import { describe, expect, it } from "vitest";
 import { toTokenUsage } from "../llm/index.js";
 import { SeamSchema, effectiveStatus } from "../types/index.js";
+import type { Finding, ReviewResult, Seam, VerificationResult } from "../types/index.js";
 import type { CallModelParams, CallModelResult } from "../llm/index.js";
 import type { ModelCaller } from "./config.js";
 import { scoreSource, DEFAULT_CANDIDATE_THRESHOLD } from "./heuristic.js";
@@ -20,7 +21,7 @@ import {
 } from "./detection.js";
 import type { CandidateSource } from "./detection.js";
 import { assembleSeam, blindConclusions } from "./assembly.js";
-import { reviewSeams } from "./pipeline.js";
+import { reviewSeams, mergeReviews } from "./pipeline.js";
 import { PlaceholderPromptError } from "./prompts.js";
 
 function candidate(path: string, lines = 30): Candidate {
@@ -265,10 +266,10 @@ describe("reviewSeams — pools COGS across multiple seams", () => {
     });
 
     expect(result.seams).toHaveLength(2);
-    // Finding IDs namespaced by seam — no collision across seams.
+    // Finding IDs namespaced by position + seam — no collision across seams.
     expect(result.findings.map((f) => f.id)).toEqual([
-      `${seamA.id}:finding-1`,
-      `${seamB.id}:finding-1`,
+      `s0:${seamA.id}:finding-1`,
+      `s1:${seamB.id}:finding-1`,
     ]);
     // effectiveStatus still resolves each finding to its own verification.
     expect(result.findings.every((f) => effectiveStatus(f, result.verifications) === "verified_real")).toBe(true);
@@ -278,5 +279,39 @@ describe("reviewSeams — pools COGS across multiple seams", () => {
       result.usages.reduce((n, u) => n + u.costUsd, 0),
       9,
     );
+  });
+
+  // TRUST-GATE REGRESSION (trust-gate trio, finding #2 — the misattachment path).
+  // Two distinct paths can slugify to the SAME seam.id; a seam-id-only prefix
+  // would alias their finding-1s, and first-match .find() would bind one seam's
+  // verification + evidence to the OTHER seam's finding. The position-keyed
+  // prefix must keep each finding bound to its own verdict.
+  it("keeps verifications bound to the right finding when two seams share a slugged id", () => {
+    const dupId = "seam-collide";
+    const mk = (kind: "money_path" | "auth", status: "verified_real" | "false_positive", quote: string) => ({
+      seam: { id: dupId, kind, label: `${kind}.ts`, sources: [{ path: `${kind}.ts` }], inputText: "x" } as Seam,
+      result: {
+        target: { repo: "r", commit: "c" },
+        seams: [],
+        findings: [{ id: "finding-1", seamId: dupId, description: `${kind} issue`, reasoning: "r", blastRadius: "critical" } as Finding],
+        verifications: [{ findingId: "finding-1", status, evidence: [{ quotedCode: quote, location: { path: `${kind}.ts`, startLine: 1 } }], note: "n" }] as VerificationResult[],
+        usages: [],
+        cost: { totalInputTokens: 0, totalOutputTokens: 0, totalCacheCreationInputTokens: 0, totalCacheReadInputTokens: 0, totalCostUsd: 0, costUsdByModel: {}, costUsdByPurpose: { seam_detection: 0, critic: 0, synthesis: 0, verification: 0, other: 0 } },
+        synthesis: "s",
+      } as ReviewResult,
+    });
+
+    // Seam A: verified_real (quote "AAA"). Seam B (same slugged id): false_positive (quote "BBB").
+    const merged = mergeReviews([mk("money_path", "verified_real", "AAA"), mk("auth", "false_positive", "BBB")], { repo: "r", commit: "c" });
+
+    const [fA, fB] = merged.findings;
+    // Each finding resolves to ITS OWN verdict — not the first one for both.
+    expect(effectiveStatus(fA!, merged.verifications)).toBe("verified_real");
+    expect(effectiveStatus(fB!, merged.verifications)).toBe("false_positive");
+    // And to its own evidence (no cross-bound proof).
+    const evA = merged.verifications.find((v) => v.findingId === fA!.id)?.evidence[0]?.quotedCode;
+    const evB = merged.verifications.find((v) => v.findingId === fB!.id)?.evidence[0]?.quotedCode;
+    expect(evA).toBe("AAA");
+    expect(evB).toBe("BBB");
   });
 });
