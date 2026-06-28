@@ -1,0 +1,217 @@
+/**
+ * Stage 1 of the detector — the cheap heuristic pre-filter (FREE, no LLM).
+ *
+ * Scans a repo's source files for candidate-seam signals and emits a ranked
+ * candidate list, bounding WHERE the LLM looks. It does not decide what IS a
+ * seam — that is Stage 2's judgment. Two refinements carried in from Phase 2
+ * (docs/seamstress-phase2-detection-validation.md):
+ *
+ * 1. SERVER-SCOPE — every real seam in the Phase 2 repo lived in server code
+ *    (actions/api/lib/middleware/auth); the false positives were UI surfaces in
+ *    components/ that merely *trigger* a server operation. So server paths get a
+ *    bonus and pure-UI files a penalty, pushing UI-trigger files below threshold.
+ *
+ * 2. CONTENT SAFETY NET — the heuristic is itself a pattern-matcher, so a
+ *    *signal-light* seam (real money/auth/deletion logic with none of the
+ *    obvious keywords or imports — exactly the business-logic seam the wedge
+ *    claims to catch) would slip a keyword filter. A separate risk-shape pass
+ *    (DB writes/deletes, permission branches, money arithmetic, payment calls)
+ *    rescues such files even with a zero keyword score. This is the real tension
+ *    of a pre-filter: it bounds cost but must not silently discard the
+ *    non-obvious seams that are the whole differentiator.
+ */
+
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import { join, relative, basename, extname } from "node:path";
+
+/** Source extensions we scan — broad enough for non-JS stacks (the generalize test). */
+const SOURCE_EXTENSIONS = new Set([
+  ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
+  ".py", ".rb", ".go", ".php", ".java", ".cs", ".rs", ".ex", ".exs",
+]);
+
+/** Directories never worth scanning. */
+const SKIP_DIRS = new Set([
+  "node_modules", ".git", "dist", "build", ".next", "out", "coverage",
+  "vendor", "venv", ".venv", "__pycache__", ".turbo", "tmp", "public", "assets",
+]);
+
+/** A scored candidate file. */
+export interface Candidate {
+  /** Repo-relative path. */
+  path: string;
+  /** Total heuristic score. */
+  score: number;
+  /** The signals that fired, for transparency/debugging. */
+  hits: string[];
+  /** Line count, for assembling source ranges later. */
+  lines: number;
+  /** True when the file only cleared the bar via the content safety net. */
+  viaSafetyNet: boolean;
+}
+
+type Signal = [pattern: RegExp, weight: number, label: string];
+
+/** Keyword/name signals matched against the repo-relative path. */
+const PATH_SIGNALS: Signal[] = [
+  [/webhook/i, 3, "path:webhook"],
+  [/payment|checkout|charge|invoice/i, 3, "path:payment"],
+  [/stripe|paypal|braintree/i, 2, "path:payment-sdk"],
+  [/billing|subscription/i, 2, "path:billing"],
+  [/portal/i, 1, "path:portal"],
+  [/\bauth|login|session|oauth|jwt/i, 2, "path:auth"],
+  [/middleware/i, 2, "path:middleware"],
+  [/admin/i, 2, "path:admin"],
+  [/delete|destroy|remove/i, 1, "path:delete"],
+  [/password|token|secret|credential/i, 1, "path:secret"],
+  [/role|permission|policy|guard/i, 2, "path:role"],
+];
+
+/** Import/keyword signals matched against file content. */
+const CONTENT_SIGNALS: Signal[] = [
+  [/from ["']stripe["']|new Stripe\(|import stripe|require\(["']stripe["']\)/i, 3, "import:payment"],
+  [/stripe\.(checkout|billingPortal|subscriptions|paymentIntents|charges|refunds)/i, 3, "api:payment"],
+  [/next-auth|getServerSession|passport|devise|omniauth|from ["']@?\/?auth["']|authlib|jsonwebtoken/i, 2, "import:auth"],
+  [/"use server"|'use server'/, 1, "server-action"],
+  [/authorize|refund|chargeback|RLS|row.level.security/i, 2, "kw:authorize/refund"],
+  [/password|bcrypt|argon2|hashpw|set_password/i, 1, "kw:credential"],
+  [/DELETE FROM|DROP TABLE|TRUNCATE/i, 2, "kw:sql-destruct"],
+];
+
+/**
+ * Risk-SHAPE signals for the content safety net — structural patterns that
+ * indicate a high-risk operation even with no obvious keyword. Each firing is
+ * one "risk shape"; a non-UI file matching >= 2 is rescued as a candidate.
+ */
+const RISK_SHAPES: Signal[] = [
+  [/\b(DELETE FROM|\.delete\(|\.deleteMany\(|\.destroy\b|\.remove\(|\.drop\()/i, 1, "shape:db-delete"],
+  [/\b(INSERT INTO|UPDATE \w+ SET|\.create\(|\.update\(|\.save\(|\.insert\()/i, 1, "shape:db-write"],
+  [/\bif\b[^\n]{0,80}\b(role|permission|owner|is_?admin|is_?staff|can_|allowed|authorize|access|current_?user)\b/i, 1, "shape:access-branch"],
+  [/\b(balance|amount|price|total|cost|credits?|quota|wallet)\b[^\n]{0,40}[-+*/]=?/i, 1, "shape:money-math"],
+  [/\b(charge|capture|payout|transfer|debit|credit)\b[^\n]{0,40}\(/i, 1, "shape:value-move"],
+];
+
+/** Server-side path markers — every real seam in Phase 2 lived under one. */
+const SERVER_PATH = /(^|\/)(actions?|api|routes?|controllers?|services?|handlers?|lib|server|middleware|auth|webhooks?|jobs?|tasks?|workers?|models?|db|database|repositories|resolvers|graphql|usecases?|domain)(\/|\.|$)/i;
+
+/**
+ * Pure-UI markers — front-end surfaces that, per Phase 2, only TRIGGER server
+ * operations and were the main false-positive source. Restricted so it does not
+ * catch server files that happen to contain "view" (e.g. Django `views.py`).
+ */
+const UI_PATH = /(^|\/)(components?|ui|widgets?)\//i;
+const UI_FILE = /(^|\/)(page|layout|loading|error|not-found|template|index)\.(t|j)sx$/i;
+const UI_EXT = new Set([".html", ".erb", ".vue", ".svelte", ".hbs", ".ejs", ".haml"]);
+
+/** Default score a file must reach to become a candidate. */
+export const DEFAULT_CANDIDATE_THRESHOLD = 3;
+/** Risk-shapes a non-UI file must hit to be rescued by the safety net alone. */
+export const SAFETY_NET_MIN_SHAPES = 2;
+
+/** Is this file a pure-UI surface (penalized, never server-bonused)? */
+function isUiFile(path: string): boolean {
+  return UI_PATH.test(path) || UI_FILE.test(path) || UI_EXT.has(extname(path));
+}
+
+/**
+ * Score one file's source. PURE and exported so scoring is unit-testable without
+ * touching the filesystem. Returns the score, the signals that fired, and
+ * whether the file qualifies only through the content safety net.
+ */
+export function scoreSource(path: string, content: string): Candidate {
+  const hits: string[] = [];
+  let score = 0;
+
+  for (const [re, w, label] of PATH_SIGNALS) if (re.test(path)) { score += w; hits.push(label); }
+  for (const [re, w, label] of CONTENT_SIGNALS) if (re.test(content)) { score += w; hits.push(label); }
+
+  const ui = isUiFile(path);
+  if (ui) {
+    score -= 3; // REFINEMENT: push UI-trigger surfaces below threshold.
+    hits.push("penalty:ui");
+  } else if (SERVER_PATH.test(path)) {
+    score += 2; // REFINEMENT: server code is where real seams live.
+    hits.push("bonus:server");
+  }
+
+  // Content safety net: count risk shapes; rescue signal-light non-UI files.
+  let shapes = 0;
+  for (const [re, , label] of RISK_SHAPES) {
+    if (re.test(content)) { shapes += 1; hits.push(label); }
+  }
+  const rescued = !ui && shapes >= SAFETY_NET_MIN_SHAPES;
+  if (rescued) score += shapes; // lift to candidacy on structural risk alone
+
+  return {
+    path,
+    score,
+    hits,
+    lines: content.split("\n").length,
+    viaSafetyNet: rescued && score - shapes < DEFAULT_CANDIDATE_THRESHOLD,
+  };
+}
+
+/** Options for {@link scanRepo}. */
+export interface ScanOptions {
+  /** Candidate threshold (default {@link DEFAULT_CANDIDATE_THRESHOLD}). */
+  threshold?: number;
+  /** Cap on files scanned, as a runaway guard on huge repos. */
+  maxFiles?: number;
+}
+
+/** Recursively list scannable source files under a directory. */
+function listSourceFiles(root: string, dir: string, acc: string[], cap: number): void {
+  if (acc.length >= cap) return;
+  for (const entry of readdirSync(dir)) {
+    if (acc.length >= cap) return;
+    const full = join(dir, entry);
+    let st;
+    try {
+      st = statSync(full);
+    } catch {
+      continue; // broken symlink etc. — skip, never abort the scan
+    }
+    if (st.isDirectory()) {
+      if (SKIP_DIRS.has(entry) || entry.startsWith(".")) continue;
+      listSourceFiles(root, full, acc, cap);
+    } else if (SOURCE_EXTENSIONS.has(extname(entry)) && !entry.endsWith(".d.ts")) {
+      acc.push(full);
+    }
+  }
+}
+
+/**
+ * Scan a repo directory and return the candidate seam files, ranked by score
+ * (highest first). The free, LLM-free first stage of detection.
+ */
+export function scanRepo(repoPath: string, options: ScanOptions = {}): Candidate[] {
+  const threshold = options.threshold ?? DEFAULT_CANDIDATE_THRESHOLD;
+  const cap = options.maxFiles ?? 5000;
+
+  const files: string[] = [];
+  listSourceFiles(repoPath, repoPath, files, cap);
+
+  const scored: Candidate[] = [];
+  for (const file of files) {
+    let content: string;
+    try {
+      content = readFileSync(file, "utf8");
+    } catch {
+      continue; // unreadable — skip, never abort
+    }
+    const candidate = scoreSource(relative(repoPath, file), content);
+    if (candidate.score >= threshold) scored.push(candidate);
+  }
+
+  return scored.sort((a, b) => b.score - a.score);
+}
+
+/** Re-exported for the assembler, which reads the candidate's real source. */
+export function readCandidateSource(repoPath: string, candidate: Candidate): string {
+  return readFileSync(join(repoPath, candidate.path), "utf8");
+}
+
+/** Human-friendly label for a candidate, used as a seam label fallback. */
+export function candidateLabel(candidate: Candidate): string {
+  return basename(candidate.path);
+}

@@ -16,6 +16,7 @@
     "dev": "tsx src/index.ts",
     "smoke": "tsx src/index.ts",
     "review": "tsx src/review.ts",
+    "detect": "tsx src/detect.ts",
     "test": "vitest run"
   },
   "dependencies": {

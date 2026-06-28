@@ -117,3 +117,51 @@ export async function reviewSeam(
     synthesis: synthesis.summary,
   };
 }
+
+/**
+ * Review MANY seams and pool the result into one {@link ReviewResult} with COGS
+ * aggregated across all of them — the clean join between detection (which
+ * produces many seams) and review (Build 2's per-seam pipeline). Resolves the
+ * Build 2 awkward-spot where each seam reviewed into its own cost silo.
+ *
+ * Finding IDs are namespaced by seam (`<seamId>:finding-N`) so the merged
+ * `findings`/`verifications` don't collide across seams and `effectiveStatus`
+ * still resolves each finding to its own verification. Per-seam reviews run
+ * concurrently; cost is summed from every call across every seam.
+ */
+export async function reviewSeams(
+  seams: Seam[],
+  options: ReviewSeamOptions,
+): Promise<ReviewResult> {
+  const perSeam = await Promise.all(
+    seams.map((seam) => reviewSeam(seam, options)),
+  );
+
+  const findings: Finding[] = [];
+  const verifications: VerificationResult[] = [];
+  const usages: TokenUsage[] = [];
+  const summaries: string[] = [];
+
+  perSeam.forEach((result, i) => {
+    const seam = seams[i]!;
+    const prefix = `${seam.id}:`;
+    for (const f of result.findings) findings.push({ ...f, id: `${prefix}${f.id}` });
+    for (const v of result.verifications) {
+      verifications.push({ ...v, findingId: `${prefix}${v.findingId}` });
+    }
+    usages.push(...result.usages);
+    if (result.findings.length > 0 || result.synthesis) {
+      summaries.push(`[${seam.label}] ${result.synthesis}`);
+    }
+  });
+
+  return {
+    target: options.target,
+    seams,
+    findings,
+    verifications,
+    usages,
+    cost: aggregateCost(usages),
+    synthesis: summaries.join("\n\n"),
+  };
+}

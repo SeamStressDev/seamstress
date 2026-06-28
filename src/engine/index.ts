@@ -7,8 +7,37 @@
  * as input and reviews it.
  */
 
-export { reviewSeam, rankAndIdentify } from "./pipeline.js";
+export { reviewSeam, reviewSeams, rankAndIdentify } from "./pipeline.js";
 export type { ReviewSeamOptions } from "./pipeline.js";
+
+// --- Detector (Build 3) ---
+export { detectSeams } from "./detector.js";
+export type { DetectSeamsOptions, DetectSeamsResult } from "./detector.js";
+export {
+  scanRepo,
+  scoreSource,
+  readCandidateSource,
+  candidateLabel,
+  DEFAULT_CANDIDATE_THRESHOLD,
+  SAFETY_NET_MIN_SHAPES,
+} from "./heuristic.js";
+export type { Candidate, ScanOptions } from "./heuristic.js";
+export {
+  judgeCandidate,
+  judgeCandidates,
+  buildDetectionPrompt,
+  DetectionResponseSchema,
+  DEFAULT_DETECTION_MODEL,
+  DEFAULT_DETECTOR_CONFIG,
+} from "./detection.js";
+export type {
+  CandidateSource,
+  JudgedCandidate,
+  DetectionResult,
+  DetectorConfig,
+  DetectionResponse,
+} from "./detection.js";
+export { assembleSeam, blindConclusions, MAX_INPUT_TEXT_CHARS } from "./assembly.js";
 
 export {
   DEFAULT_REVIEW_CONFIG,
