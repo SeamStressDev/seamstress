@@ -228,6 +228,22 @@ export function readCandidateSource(repoPath: string, candidate: Candidate): str
   return readFileSync(join(repoPath, candidate.path), "utf8");
 }
 
+/**
+ * Count scannable source files and tally them by extension. Drives the map
+ * headline ("scanned N files") and the coverage signal (which language/stack
+ * dominates). Uses the same enumeration as {@link scanRepo}.
+ */
+export function sourceFileStats(repoPath: string): { total: number; byExt: Record<string, number> } {
+  const files: string[] = [];
+  listSourceFiles(repoPath, repoPath, files, 100_000);
+  const byExt: Record<string, number> = {};
+  for (const f of files) {
+    const ext = extname(f);
+    byExt[ext] = (byExt[ext] ?? 0) + 1;
+  }
+  return { total: files.length, byExt };
+}
+
 /** Human-friendly label for a candidate, used as a seam label fallback. */
 export function candidateLabel(candidate: Candidate): string {
   return basename(candidate.path);

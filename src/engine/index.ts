@@ -7,8 +7,20 @@
  * as input and reviews it.
  */
 
-export { reviewSeam, reviewSeams, rankAndIdentify } from "./pipeline.js";
+export { reviewSeam, reviewSeams, mergeReviews, rankAndIdentify } from "./pipeline.js";
 export type { ReviewSeamOptions } from "./pipeline.js";
+
+// --- End-to-end seam-map (Build 4) ---
+export { mapSeams, assessCoverage } from "./map.js";
+export type {
+  SeamMap,
+  MapSeamsOptions,
+  CoverageSignal,
+  ErroredSeam,
+} from "./map.js";
+export { renderSeamMap, renderOperatorFootnote } from "./report.js";
+export { mapWithConcurrency, DEFAULT_REVIEW_CONCURRENCY } from "./concurrency.js";
+export { sourceFileStats } from "./heuristic.js";
 
 // --- Detector (Build 3) ---
 export { detectSeams } from "./detector.js";

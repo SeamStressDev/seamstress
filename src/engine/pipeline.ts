@@ -18,6 +18,7 @@ import type {
 } from "../types/index.js";
 import type { ModelCaller, ReviewConfig } from "./config.js";
 import { DEFAULT_REVIEW_CONFIG } from "./config.js";
+import { DEFAULT_REVIEW_CONCURRENCY, mapWithConcurrency } from "./concurrency.js";
 import type { FindingDraft } from "./parse.js";
 import { runCritics, runSynthesis, runVerification } from "./stages.js";
 
@@ -29,6 +30,8 @@ export interface ReviewSeamOptions {
   target: ReviewTarget;
   /** Overrides {@link DEFAULT_REVIEW_CONFIG} when provided. */
   config?: ReviewConfig;
+  /** Max seams reviewed concurrently in {@link reviewSeams}. */
+  concurrency?: number;
 }
 
 /** Blast-radius sort key — most consequential first. */
@@ -119,31 +122,28 @@ export async function reviewSeam(
 }
 
 /**
- * Review MANY seams and pool the result into one {@link ReviewResult} with COGS
- * aggregated across all of them — the clean join between detection (which
- * produces many seams) and review (Build 2's per-seam pipeline). Resolves the
- * Build 2 awkward-spot where each seam reviewed into its own cost silo.
+ * Merge per-seam reviews into one pooled {@link ReviewResult}. Finding IDs are
+ * namespaced by seam (`<seamId>:finding-N`) so the merged `findings` /
+ * `verifications` don't collide across seams and `effectiveStatus` still
+ * resolves each finding to its own verification. `extraUsages` lets a caller
+ * fold in upstream cost (e.g. detection) when pooling totals.
  *
- * Finding IDs are namespaced by seam (`<seamId>:finding-N`) so the merged
- * `findings`/`verifications` don't collide across seams and `effectiveStatus`
- * still resolves each finding to its own verification. Per-seam reviews run
- * concurrently; cost is summed from every call across every seam.
+ * Exported so the end-to-end map can reuse the exact same merge after its own
+ * per-seam-isolated review loop.
  */
-export async function reviewSeams(
-  seams: Seam[],
-  options: ReviewSeamOptions,
-): Promise<ReviewResult> {
-  const perSeam = await Promise.all(
-    seams.map((seam) => reviewSeam(seam, options)),
-  );
-
+export function mergeReviews(
+  pairs: ReadonlyArray<{ seam: Seam; result: ReviewResult }>,
+  target: ReviewTarget,
+  extraUsages: readonly TokenUsage[] = [],
+): ReviewResult {
+  const seams: Seam[] = [];
   const findings: Finding[] = [];
   const verifications: VerificationResult[] = [];
-  const usages: TokenUsage[] = [];
+  const usages: TokenUsage[] = [...extraUsages];
   const summaries: string[] = [];
 
-  perSeam.forEach((result, i) => {
-    const seam = seams[i]!;
+  for (const { seam, result } of pairs) {
+    seams.push(seam);
     const prefix = `${seam.id}:`;
     for (const f of result.findings) findings.push({ ...f, id: `${prefix}${f.id}` });
     for (const v of result.verifications) {
@@ -153,10 +153,10 @@ export async function reviewSeams(
     if (result.findings.length > 0 || result.synthesis) {
       summaries.push(`[${seam.label}] ${result.synthesis}`);
     }
-  });
+  }
 
   return {
-    target: options.target,
+    target,
     seams,
     findings,
     verifications,
@@ -164,4 +164,29 @@ export async function reviewSeams(
     cost: aggregateCost(usages),
     synthesis: summaries.join("\n\n"),
   };
+}
+
+/**
+ * Review MANY seams and pool the result into one {@link ReviewResult} with COGS
+ * aggregated across all of them — the clean join between detection (which
+ * produces many seams) and review (Build 2's per-seam pipeline). Resolves the
+ * Build 2 awkward-spot where each seam reviewed into its own cost silo.
+ *
+ * Reviews run with BOUNDED concurrency (default {@link DEFAULT_REVIEW_CONCURRENCY})
+ * rather than an unbounded `Promise.all`, so a many-seam repo doesn't burst the
+ * API. Strict: a seam review that throws propagates (the end-to-end map adds
+ * per-seam isolation on top).
+ */
+export async function reviewSeams(
+  seams: Seam[],
+  options: ReviewSeamOptions,
+): Promise<ReviewResult> {
+  const concurrency = options.concurrency ?? DEFAULT_REVIEW_CONCURRENCY;
+  const results = await mapWithConcurrency(seams, concurrency, (seam) =>
+    reviewSeam(seam, options),
+  );
+  return mergeReviews(
+    seams.map((seam, i) => ({ seam, result: results[i]! })),
+    options.target,
+  );
 }
