@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit",
     "dev": "tsx src/index.ts",
     "smoke": "tsx src/index.ts",
+    "review": "tsx src/review.ts",
     "test": "vitest run"
   },
   "dependencies": {

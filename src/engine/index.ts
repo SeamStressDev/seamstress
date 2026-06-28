@@ -1,10 +1,56 @@
 /**
- * The review engine.
+ * The review engine: given an assembled {@link Seam}, run blind critics →
+ * synthesis → verification and produce a ranked {@link ReviewResult} with clean
+ * COGS broken down by purpose. The validation-run flow, ported into software.
  *
- * STUB — the review pipeline (critics → synthesis → verification, ported from
- * the validation runs) lands here in the NEXT build, on top of the data model
- * (`src/types`) and the LLM primitive (`src/llm`). Intentionally empty for now
- * so the engine boundary exists without implying capability that isn't built.
+ * Seam *detection* is Build 3 and deliberately not here; the engine takes a seam
+ * as input and reviews it.
  */
 
-export {};
+export { reviewSeam, rankAndIdentify } from "./pipeline.js";
+export type { ReviewSeamOptions } from "./pipeline.js";
+
+export {
+  DEFAULT_REVIEW_CONFIG,
+  DEFAULT_CRITICS,
+  DEFAULT_CRITIC_MODEL,
+  DEFAULT_JUDGE_MODEL,
+} from "./config.js";
+export type { ModelCaller, ReviewConfig, CriticSpec } from "./config.js";
+
+export { runCritics, runSynthesis, runVerification } from "./stages.js";
+export type {
+  CriticOutcome,
+  SynthesisOutcome,
+  VerificationOutcome,
+} from "./stages.js";
+
+export {
+  assertSeamPresent,
+  buildCriticPrompt,
+  buildSynthesisPrompt,
+  buildVerificationPrompt,
+  PlaceholderPromptError,
+  CRITIC_SYSTEM,
+  SYNTHESIS_SYSTEM,
+  VERIFICATION_SYSTEM,
+} from "./prompts.js";
+export type { BuiltPrompt } from "./prompts.js";
+
+export {
+  extractJsonObject,
+  parseModelJson,
+  ModelOutputParseError,
+  FindingDraftSchema,
+  CriticResponseSchema,
+  SynthesisResponseSchema,
+  VerificationResponseSchema,
+  VerificationVerdictSchema,
+} from "./parse.js";
+export type {
+  FindingDraft,
+  CriticResponse,
+  SynthesisResponse,
+  VerificationResponse,
+  VerificationVerdict,
+} from "./parse.js";

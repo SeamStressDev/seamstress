@@ -1,0 +1,96 @@
+/**
+ * Live review runner. Loads ONE assembled seam from a JSON fixture, runs the
+ * full real pipeline (blind critics → synthesis → verification) against the
+ * Anthropic API, and prints the ranked findings, each verification verdict with
+ * its quoted evidence, and the COGS broken down by purpose — the first time
+ * verification cost is measured as a fraction of a real review.
+ *
+ * Usage (needs a real key in .env):
+ *   npm run review                                    # default Resend fixture
+ *   npm run review -- fixtures/resend-critical-email.seam.json
+ */
+
+import { readFileSync } from "node:fs";
+import { reviewSeam } from "./engine/index.js";
+import { LlmClient } from "./llm/index.js";
+import { effectiveStatus, SeamSchema } from "./types/index.js";
+import type { ReviewResult } from "./types/index.js";
+
+const DEFAULT_FIXTURE = "fixtures/resend-critical-email.seam.json";
+
+/** Load `.env` if present; otherwise rely on the ambient environment. */
+function loadEnvFile(): void {
+  try {
+    process.loadEnvFile();
+  } catch {
+    // No .env file — fine, the key may already be in the environment.
+  }
+}
+
+function printResult(result: ReviewResult): void {
+  const { findings, verifications, cost } = result;
+
+  console.log("\n================ RANKED FINDINGS ================");
+  if (findings.length === 0) {
+    console.log("(no findings — the seam was judged sound)");
+  }
+  findings.forEach((f, i) => {
+    const status = effectiveStatus(f, verifications);
+    const conf = f.confidence ? `, confidence=${f.confidence}` : "";
+    console.log(`\n[${i + 1}] (${f.blastRadius}${conf}) ${status.toUpperCase()}`);
+    console.log(`    ${f.description}`);
+    console.log(`    reasoning: ${f.reasoning}`);
+
+    const v = verifications.find((x) => x.findingId === f.id);
+    if (v) {
+      console.log(`    verdict: ${v.status} — ${v.note}`);
+      v.evidence.forEach((e) => {
+        const loc = e.location.startLine ? `:${e.location.startLine}` : "";
+        console.log(`      evidence (${e.location.path}${loc}): ${e.quotedCode}`);
+      });
+    }
+  });
+
+  console.log("\n================ SYNTHESIS ================");
+  console.log(result.synthesis);
+
+  console.log("\n================ COGS BY PURPOSE ================");
+  for (const [purpose, usd] of Object.entries(cost.costUsdByPurpose)) {
+    if (usd > 0) console.log(`  ${purpose.padEnd(14)} $${usd.toFixed(6)}`);
+  }
+  console.log("  ----------------------------");
+  console.log("  by model:");
+  for (const [model, usd] of Object.entries(cost.costUsdByModel)) {
+    console.log(`    ${model.padEnd(26)} $${usd.toFixed(6)}`);
+  }
+  console.log(
+    `  TOTAL          $${cost.totalCostUsd.toFixed(6)} ` +
+      `(${cost.totalInputTokens} in / ${cost.totalOutputTokens} out tokens, ` +
+      `${result.usages.length} calls)`,
+  );
+}
+
+async function main(): Promise<void> {
+  loadEnvFile();
+
+  const fixturePath = process.argv[2] ?? DEFAULT_FIXTURE;
+  const raw: unknown = JSON.parse(readFileSync(fixturePath, "utf8"));
+  const seam = SeamSchema.parse(raw);
+
+  console.log(`--- SeamStress review: ${seam.label} ---`);
+  console.log(`seam: ${seam.id} (kind: ${seam.kind}) from ${fixturePath}`);
+
+  const client = new LlmClient();
+  const result = await reviewSeam(seam, {
+    client,
+    target: { repo: "SeamStressDev/seamstress", commit: "working-tree" },
+  });
+
+  printResult(result);
+}
+
+main().catch((err: unknown) => {
+  console.error("Review run failed:");
+  console.error(err);
+  process.exitCode = 1;
+});
