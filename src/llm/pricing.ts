@@ -60,11 +60,31 @@ export class UnknownModelPricingError extends Error {
   }
 }
 
-/** Look up pricing for a model, throwing if it is unknown. */
+/**
+ * Look up pricing for a model, throwing if it is unknown.
+ *
+ * The Anthropic API echoes back the full *dated* model ID (e.g.
+ * `claude-haiku-4-5-20251001`) even when you request the alias
+ * (`claude-haiku-4-5`). `MODEL_PRICING` is keyed on clean aliases, so we first
+ * try an exact match (fast path) and otherwise fall back to the longest alias
+ * that is a prefix of the requested ID. This tolerates dated suffixes without
+ * enumerating every snapshot in the table.
+ */
 export function pricingFor(model: string): ModelPricing {
-  const pricing = MODEL_PRICING[model];
-  if (!pricing) throw new UnknownModelPricingError(model);
-  return pricing;
+  const exact = MODEL_PRICING[model];
+  if (exact) return exact;
+
+  let bestKey: string | undefined;
+  let bestPricing: ModelPricing | undefined;
+  for (const [key, pricing] of Object.entries(MODEL_PRICING)) {
+    if (model.startsWith(key) && (bestKey === undefined || key.length > bestKey.length)) {
+      bestKey = key;
+      bestPricing = pricing;
+    }
+  }
+  if (bestPricing !== undefined) return bestPricing;
+
+  throw new UnknownModelPricingError(model);
 }
 
 /**

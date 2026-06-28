@@ -26,6 +26,47 @@ describe("pricingFor", () => {
       UnknownModelPricingError,
     );
   });
+
+  // Regression: the Anthropic API echoes back the full dated model ID even when
+  // the alias is requested, so the exact-match lookup threw UnknownModelPricing-
+  // Error mid-COGS. pricingFor must resolve a dated ID to its alias's pricing.
+  it("resolves a dated Haiku ID to the claude-haiku-4-5 pricing", () => {
+    expect(pricingFor("claude-haiku-4-5-20251001")).toEqual({
+      inputPer1M: 1,
+      outputPer1M: 5,
+    });
+  });
+
+  it("resolves a dated Opus ID to the claude-opus-4-8 pricing", () => {
+    expect(pricingFor("claude-opus-4-8-20260115")).toEqual({
+      inputPer1M: 5,
+      outputPer1M: 25,
+    });
+  });
+
+  it("still resolves an exact alias via the fast path", () => {
+    expect(pricingFor("claude-opus-4-8")).toEqual({
+      inputPer1M: 5,
+      outputPer1M: 25,
+    });
+  });
+
+  it("throws on a genuinely unknown model even with the prefix fallback", () => {
+    expect(() => pricingFor("claude-nonexistent-9-9")).toThrow(
+      UnknownModelPricingError,
+    );
+  });
+
+  // A dated suffix must not let a near-miss alias win: claude-opus-4-8-...
+  // shares the "claude-opus-4-" stem with 4-7/4-6 but only 4-8 is a prefix.
+  it("picks the correct alias when sibling aliases share a stem", () => {
+    expect(pricingFor("claude-opus-4-7-20260101")).toEqual(
+      pricingFor("claude-opus-4-7"),
+    );
+    expect(pricingFor("claude-opus-4-6-20260101")).toEqual(
+      pricingFor("claude-opus-4-6"),
+    );
+  });
 });
 
 describe("computeCallCostUsd", () => {
