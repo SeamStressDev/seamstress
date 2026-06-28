@@ -44,8 +44,17 @@ export interface ReviewConfig {
 
 /** Default critic model — capable enough for the seam-review lenses, mid-cost. */
 export const DEFAULT_CRITIC_MODEL = "claude-sonnet-4-6";
-/** Default model for synthesis and verification — the most capable tier. */
+/** Default model for synthesis — the consolidation judgment runs on the top tier. */
 export const DEFAULT_JUDGE_MODEL = "claude-opus-4-8";
+/**
+ * Default model for verification. Sonnet, not Opus: the Phase 1 tier experiment
+ * (docs/seamstress-phase1-verification-tier.md) found Sonnet reproduced every
+ * verdict on the critical/high findings with equally rigorous real-source
+ * evidence at ~54% lower cost — its only divergences from Opus were
+ * verified_real/judgment_call boundary calls on lower-priority findings, not the
+ * false-positive failure mode that matters for the trust gate.
+ */
+export const DEFAULT_VERIFICATION_MODEL = "claude-sonnet-4-6";
 
 /**
  * The three default critics. Same model, decorrelated by framing — each leans
@@ -80,6 +89,6 @@ export const DEFAULT_CRITICS: CriticSpec[] = [
 export const DEFAULT_REVIEW_CONFIG: ReviewConfig = {
   critics: DEFAULT_CRITICS,
   synthesisModel: DEFAULT_JUDGE_MODEL,
-  verificationModel: DEFAULT_JUDGE_MODEL,
+  verificationModel: DEFAULT_VERIFICATION_MODEL,
   maxTokens: 4096,
 };

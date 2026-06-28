@@ -24,6 +24,17 @@ import {
 } from "./parse.js";
 import { runCritics, runVerification } from "./stages.js";
 import { rankAndIdentify, reviewSeam } from "./pipeline.js";
+import { DEFAULT_REVIEW_CONFIG } from "./config.js";
+
+describe("default config — verification tier (Phase 1 decision)", () => {
+  it("verifies on Sonnet by default, synthesizes on Opus", () => {
+    // Phase 1 (docs/seamstress-phase1-verification-tier.md): verification dropped
+    // to Sonnet — same verdicts + evidence on critical/high findings, ~54% cheaper.
+    // Synthesis judgment stays on the top tier. This guards the deliberate split.
+    expect(DEFAULT_REVIEW_CONFIG.verificationModel).toBe("claude-sonnet-4-6");
+    expect(DEFAULT_REVIEW_CONFIG.synthesisModel).toBe("claude-opus-4-8");
+  });
+});
 
 const SEAM: Seam = {
   id: "seam-1",

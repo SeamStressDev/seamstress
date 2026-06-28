@@ -15,6 +15,7 @@ export {
   DEFAULT_CRITICS,
   DEFAULT_CRITIC_MODEL,
   DEFAULT_JUDGE_MODEL,
+  DEFAULT_VERIFICATION_MODEL,
 } from "./config.js";
 export type { ModelCaller, ReviewConfig, CriticSpec } from "./config.js";
 
