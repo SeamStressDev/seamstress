@@ -146,6 +146,41 @@ describe("effectiveStatus (Decision 1: derived, not stored)", () => {
     };
     expect(effectiveStatus(finding, [other])).toBe("unverified");
   });
+
+  // TRUST-GATE REGRESSION (trust-gate trio, finding #1 — the confident-lie path).
+  // A verified_real result with no usable quoted code must NOT certify a finding
+  // as verified — the schema permits evidence-less results, the authority refuses
+  // to trust them. Without this, such a finding renders in the headline under
+  // "the exact lines quoted as proof" with no proof attached.
+  it("refuses verified_real when the evidence array is empty", () => {
+    const noEvidence: VerificationResult = {
+      findingId: "finding-1",
+      status: "verified_real",
+      evidence: [],
+      note: "claims verified but quotes nothing",
+    };
+    expect(effectiveStatus(finding, [noEvidence])).toBe("unverified");
+  });
+
+  it("refuses verified_real when the only evidence has an empty/whitespace quote", () => {
+    const blankQuote: VerificationResult = {
+      findingId: "finding-1",
+      status: "verified_real",
+      evidence: [{ quotedCode: "   \n  ", location: { path: "x.ts", startLine: 1 } }],
+      note: "claims verified but the quote is blank",
+    };
+    expect(effectiveStatus(finding, [blankQuote])).toBe("unverified");
+  });
+
+  it("still certifies a verdict backed by real quoted code", () => {
+    const real: VerificationResult = {
+      findingId: "finding-1",
+      status: "verified_real",
+      evidence: [{ quotedCode: "if (a < b) throw;", location: { path: "x.ts", startLine: 1 } }],
+      note: "real proof",
+    };
+    expect(effectiveStatus(finding, [real])).toBe("verified_real");
+  });
 });
 
 describe("VerificationResultSchema", () => {
