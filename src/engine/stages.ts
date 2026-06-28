@@ -6,6 +6,8 @@
  * no orchestration of its own — `pipeline.ts` wires them together.
  */
 
+import type { z } from "zod";
+import type { CallModelParams } from "../llm/index.js";
 import type {
   Finding,
   Seam,
@@ -15,6 +17,7 @@ import type {
 import type { ModelCaller, ReviewConfig } from "./config.js";
 import {
   CriticResponseSchema,
+  ModelOutputParseError,
   parseModelJson,
   SynthesisResponseSchema,
   VerificationResponseSchema,
@@ -25,6 +28,61 @@ import {
   buildSynthesisPrompt,
   buildVerificationPrompt,
 } from "./prompts.js";
+
+/**
+ * Re-attempts on a malformed RESPONSE, on top of the initial attempt. This is
+ * DISTINCT from {@link withRetry} in the LLM client, which retries transient
+ * TRANSPORT failures (connection/5xx). A parse failure is a well-delivered but
+ * malformed answer that usually parses fine on a re-ask (default sampling
+ * temperature makes the re-issued call vary), so a couple of cheap re-asks keep
+ * a single bad response from punting an entire seam — exactly the gap that left
+ * a money-path seam unreviewed in the live run.
+ */
+export const DEFAULT_PARSE_RETRIES = 2;
+
+/** Sum repeated attempts into one usage so wasted re-asks still count toward COGS. */
+function mergeUsages(usages: TokenUsage[]): TokenUsage {
+  const first = usages[0]!;
+  if (usages.length === 1) return first;
+  return {
+    model: first.model,
+    purpose: first.purpose,
+    inputTokens: usages.reduce((n, u) => n + u.inputTokens, 0),
+    outputTokens: usages.reduce((n, u) => n + u.outputTokens, 0),
+    cacheCreationInputTokens: usages.reduce((n, u) => n + u.cacheCreationInputTokens, 0),
+    cacheReadInputTokens: usages.reduce((n, u) => n + u.cacheReadInputTokens, 0),
+    costUsd: usages.reduce((n, u) => n + u.costUsd, 0),
+  };
+}
+
+/**
+ * Call the model and parse its output, re-issuing the call up to `parseRetries`
+ * times on a {@link ModelOutputParseError} before giving up. The returned usage
+ * sums every attempt (re-asks aren't free). A non-parse error (e.g. a terminal
+ * API failure that already exhausted transport retries) propagates immediately —
+ * this layer only retries malformed responses. If the budget is exhausted the
+ * last parse error throws, and the caller's per-seam isolation takes over.
+ */
+async function callModelAndParse<T>(
+  client: ModelCaller,
+  params: CallModelParams,
+  schema: z.ZodType<T>,
+  parseRetries: number = DEFAULT_PARSE_RETRIES,
+): Promise<{ parsed: T; usage: TokenUsage }> {
+  const usages: TokenUsage[] = [];
+  let lastError: unknown;
+  for (let attempt = 0; attempt <= parseRetries; attempt += 1) {
+    const result = await client.callModel(params);
+    usages.push(result.usage);
+    try {
+      return { parsed: parseModelJson(result.text, schema), usage: mergeUsages(usages) };
+    } catch (err) {
+      if (!(err instanceof ModelOutputParseError)) throw err;
+      lastError = err; // malformed — re-ask
+    }
+  }
+  throw lastError;
+}
 
 /** What one critic produced: its drafts plus the usage its call incurred. */
 export interface CriticOutcome {
@@ -48,15 +106,18 @@ export async function runCritics(
   return Promise.all(
     config.critics.map(async (critic): Promise<CriticOutcome> => {
       const { system, user } = buildCriticPrompt(seam, critic.framing);
-      const result = await client.callModel({
-        model: critic.model,
-        system,
-        maxTokens: config.maxTokens,
-        purpose: "critic",
-        messages: [{ role: "user", content: user }],
-      });
-      const parsed = parseModelJson(result.text, CriticResponseSchema);
-      return { label: critic.label, drafts: parsed.findings, usage: result.usage };
+      const { parsed, usage } = await callModelAndParse(
+        client,
+        {
+          model: critic.model,
+          system,
+          maxTokens: config.maxTokens,
+          purpose: "critic",
+          messages: [{ role: "user", content: user }],
+        },
+        CriticResponseSchema,
+      );
+      return { label: critic.label, drafts: parsed.findings, usage };
     }),
   );
 }
@@ -81,15 +142,18 @@ export async function runSynthesis(
   config: ReviewConfig,
 ): Promise<SynthesisOutcome> {
   const { system, user } = buildSynthesisPrompt(seam, criticDrafts);
-  const result = await client.callModel({
-    model: config.synthesisModel,
-    system,
-    maxTokens: config.maxTokens,
-    purpose: "synthesis",
-    messages: [{ role: "user", content: user }],
-  });
-  const parsed = parseModelJson(result.text, SynthesisResponseSchema);
-  return { summary: parsed.summary, drafts: parsed.findings, usage: result.usage };
+  const { parsed, usage } = await callModelAndParse(
+    client,
+    {
+      model: config.synthesisModel,
+      system,
+      maxTokens: config.maxTokens,
+      purpose: "synthesis",
+      messages: [{ role: "user", content: user }],
+    },
+    SynthesisResponseSchema,
+  );
+  return { summary: parsed.summary, drafts: parsed.findings, usage };
 }
 
 /** One verification: the result for a finding plus the call's usage. */
@@ -111,14 +175,17 @@ export async function runVerification(
   config: ReviewConfig,
 ): Promise<VerificationOutcome> {
   const { system, user } = buildVerificationPrompt(seam, finding);
-  const result = await client.callModel({
-    model: config.verificationModel,
-    system,
-    maxTokens: config.maxTokens,
-    purpose: "verification",
-    messages: [{ role: "user", content: user }],
-  });
-  const parsed = parseModelJson(result.text, VerificationResponseSchema);
+  const { parsed, usage } = await callModelAndParse(
+    client,
+    {
+      model: config.verificationModel,
+      system,
+      maxTokens: config.maxTokens,
+      purpose: "verification",
+      messages: [{ role: "user", content: user }],
+    },
+    VerificationResponseSchema,
+  );
   return {
     result: {
       findingId: finding.id,
@@ -126,6 +193,6 @@ export async function runVerification(
       evidence: parsed.evidence,
       note: parsed.note,
     },
-    usage: result.usage,
+    usage,
   };
 }

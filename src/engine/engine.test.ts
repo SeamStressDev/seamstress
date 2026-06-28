@@ -22,7 +22,7 @@ import {
   parseModelJson,
   CriticResponseSchema,
 } from "./parse.js";
-import { runCritics, runVerification } from "./stages.js";
+import { runCritics, runVerification, DEFAULT_PARSE_RETRIES } from "./stages.js";
 import { rankAndIdentify, reviewSeam } from "./pipeline.js";
 import { DEFAULT_REVIEW_CONFIG } from "./config.js";
 
@@ -291,6 +291,69 @@ describe("verification stage — maps to VerificationResult + derived status", (
 
   it("a finding with no verification derives unverified", () => {
     expect(effectiveStatus(finding, [])).toBe("unverified");
+  });
+});
+
+describe("review parse-retry (Fix 2) — money-path seams not punted", () => {
+  const finding: Finding = {
+    id: "finding-1",
+    seamId: "seam-1",
+    description: "quota guard is cosmetic",
+    reasoning: "only logs",
+    blastRadius: "critical",
+  };
+  const config = {
+    critics: [],
+    synthesisModel: "claude-haiku-4-5",
+    verificationModel: "claude-haiku-4-5",
+    maxTokens: 512,
+  };
+  const VALID = JSON.stringify({
+    status: "verified_real",
+    evidence: [{ quotedCode: "log('quota')", location: { path: "send.ts", startLine: 2 } }],
+    note: "confirmed",
+  });
+
+  /** A caller that returns malformed output for the first `malformedFirst` calls, then valid. */
+  function flakyClient(malformedFirst: number): ModelCaller {
+    let calls = 0;
+    return {
+      async callModel(params: CallModelParams): Promise<CallModelResult> {
+        const text = calls < malformedFirst ? "the model forgot to answer in JSON" : VALID;
+        calls += 1;
+        return {
+          text,
+          stopReason: "end_turn",
+          usage: toTokenUsage("claude-haiku-4-5", params.purpose ?? "other", {
+            inputTokens: 10,
+            outputTokens: 5,
+            cacheCreationInputTokens: 0,
+            cacheReadInputTokens: 0,
+          }),
+        };
+      },
+    };
+  }
+
+  it("re-asks on a malformed response, then succeeds (the seam is reviewed, not punted)", async () => {
+    const client = flakyClient(1); // first response malformed, then valid
+    const spy = vi.spyOn(client, "callModel");
+
+    const { result, usage } = await runVerification(SEAM, finding, client, config);
+
+    expect(result.status).toBe("verified_real"); // produced a real verdict
+    expect(spy).toHaveBeenCalledTimes(2); // one re-ask
+    expect(usage.inputTokens).toBe(20); // both attempts counted toward COGS
+  });
+
+  it("gives up after the bounded budget and throws, so per-seam isolation can take over", async () => {
+    const client = flakyClient(99); // malformed every time
+    const spy = vi.spyOn(client, "callModel");
+
+    await expect(runVerification(SEAM, finding, client, config)).rejects.toThrow(
+      ModelOutputParseError,
+    );
+    expect(spy).toHaveBeenCalledTimes(DEFAULT_PARSE_RETRIES + 1); // bounded, not infinite
   });
 });
 
