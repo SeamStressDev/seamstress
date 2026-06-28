@@ -7,11 +7,13 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  effectiveStatus,
   FindingSchema,
   ReviewResultSchema,
   SeamSchema,
   VerificationResultSchema,
 } from "./index.js";
+import type { Finding, VerificationResult } from "./index.js";
 
 const validSeam = {
   id: "seam-1",
@@ -27,7 +29,6 @@ const validFinding = {
   description: "Balance check uses < instead of <=, allowing one-cent overdraw.",
   blastRadius: "critical",
   reasoning: "The guard permits balance === amount - 1 to pass.",
-  verificationStatus: "unverified",
 };
 
 const validVerification = {
@@ -77,17 +78,73 @@ describe("FindingSchema", () => {
     ).toBe(false);
   });
 
-  it("rejects an unknown verification status", () => {
-    expect(
-      FindingSchema.safeParse({ ...validFinding, verificationStatus: "maybe" })
-        .success,
-    ).toBe(false);
-  });
-
   it("rejects a non-string description", () => {
     expect(
       FindingSchema.safeParse({ ...validFinding, description: 42 }).success,
     ).toBe(false);
+  });
+
+  // Decision 1: a Finding carries NO verificationStatus field. The illegal
+  // state "verified with no evidence" is unrepresentable — there is no field to
+  // set. zod strips unknown keys, so an attempt to smuggle one in is dropped.
+  it("has no verificationStatus field (status is derived, never stored)", () => {
+    expect("verificationStatus" in FindingSchema.shape).toBe(false);
+    const parsed = FindingSchema.parse({
+      ...validFinding,
+      verificationStatus: "verified_real",
+    });
+    expect("verificationStatus" in parsed).toBe(false);
+  });
+
+  // Decision 2: confidence is OPTIONAL — findings parse with and without it.
+  it("parses a finding without confidence", () => {
+    expect(FindingSchema.parse(validFinding).confidence).toBeUndefined();
+  });
+
+  it("parses a finding with a valid confidence", () => {
+    expect(
+      FindingSchema.parse({ ...validFinding, confidence: "high" }).confidence,
+    ).toBe("high");
+  });
+
+  it("rejects an unknown confidence level", () => {
+    expect(
+      FindingSchema.safeParse({ ...validFinding, confidence: "certain" })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe("effectiveStatus (Decision 1: derived, not stored)", () => {
+  const finding = FindingSchema.parse(validFinding) as Finding;
+
+  it("derives `unverified` when no verification result exists", () => {
+    expect(effectiveStatus(finding, [])).toBe("unverified");
+  });
+
+  it("derives the result's status when a matching verification exists", () => {
+    const verification: VerificationResult = {
+      findingId: "finding-1",
+      status: "verified_real",
+      evidence: [
+        {
+          quotedCode: "if (balance < amount) throw new Error();",
+          location: { path: "src/wallet/withdraw.ts", startLine: 44 },
+        },
+      ],
+      note: "Confirmed against the real guard.",
+    };
+    expect(effectiveStatus(finding, [verification])).toBe("verified_real");
+  });
+
+  it("ignores verification results for other findings", () => {
+    const other: VerificationResult = {
+      findingId: "finding-99",
+      status: "false_positive",
+      evidence: [],
+      note: "Belongs to a different finding.",
+    };
+    expect(effectiveStatus(finding, [other])).toBe("unverified");
   });
 });
 
@@ -113,6 +170,7 @@ describe("ReviewResultSchema", () => {
     target: { repo: "SeamStressDev/seamstress", commit: "93eabba" },
     seams: [validSeam],
     findings: [validFinding],
+    verifications: [validVerification],
     usages: [
       {
         model: "claude-haiku-4-5",

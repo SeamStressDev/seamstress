@@ -6,6 +6,7 @@ import { z } from "zod";
 import { CostSchema, TokenUsageSchema } from "./cost.js";
 import { FindingSchema } from "./finding.js";
 import { SeamSchema } from "./seam.js";
+import { VerificationResultSchema } from "./verification.js";
 
 /**
  * Identifies exactly what was reviewed, so a result can be tied back to a
@@ -33,6 +34,13 @@ export const ReviewResultSchema = z.object({
    * Ordering is the producer's responsibility; consumers can rely on it.
    */
   findings: z.array(FindingSchema),
+  /**
+   * The verification results — the SOLE authority for finding status (Decision
+   * 1). A finding's effective status is derived by looking it up here via
+   * `effectiveStatus`; a finding with no entry here is `unverified`. Carrying
+   * these on the result is what makes that derivation possible downstream.
+   */
+  verifications: z.array(VerificationResultSchema),
   /**
    * Every model call made during the review, in order. The raw per-call COGS
    * primitive — the aggregate in {@link ReviewResultSchema} `cost` is derived

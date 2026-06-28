@@ -27,6 +27,13 @@ export type BlastRadiusRank = z.infer<typeof BlastRadiusRankSchema>;
  * - `verified_real`  — confirmed against the real code; it is a true issue.
  * - `false_positive` — checked and refuted; the code is actually fine.
  * - `judgment_call`  — real but contestable; depends on intent/context a human owns.
+ *
+ * NOTE: this status is **not** a field on {@link Finding}. A finding is inherently
+ * unverified; its effective status is *derived* from whether a
+ * {@link VerificationResult} exists for it. See {@link effectiveStatus} in
+ * `status.ts`. This is deliberate: there is no way to represent a "verified"
+ * finding with no evidence backing it — exactly the unverified-confident-claim
+ * anti-pattern SeamStress exists to catch.
  */
 export const VerificationStatusSchema = z.enum([
   "unverified",
@@ -37,7 +44,22 @@ export const VerificationStatusSchema = z.enum([
 export type VerificationStatus = z.infer<typeof VerificationStatusSchema>;
 
 /**
+ * How sure the critic is that a finding is *real* — distinct from
+ * {@link BlastRadiusRankSchema}, which is how bad it would be *if* real.
+ * Probability vs. consequence. Optional: a critic populates it when it has a
+ * genuine read on likelihood, and absence is fine. Build 2 keeps ranking
+ * blast-radius-ordered; this field captures the signal for later
+ * probability×consequence weighting without committing to that machinery yet.
+ */
+export const ConfidenceSchema = z.enum(["high", "medium", "low"]);
+export type Confidence = z.infer<typeof ConfidenceSchema>;
+
+/**
  * Something a review surfaced about a {@link Seam}.
+ *
+ * A `Finding` carries no verification status of its own — it is the raw claim a
+ * critic made. Whether it has been confirmed against real code is derived from
+ * the presence of a {@link VerificationResult} (see {@link effectiveStatus}).
  */
 export const FindingSchema = z.object({
   /** Stable identifier for this finding within a review. */
@@ -52,7 +74,7 @@ export const FindingSchema = z.object({
   blastRadius: BlastRadiusRankSchema,
   /** Why the reviewer believes this is an issue — the chain of reasoning. */
   reasoning: z.string(),
-  /** Where this finding stands after verification (see {@link VerificationStatusSchema}). */
-  verificationStatus: VerificationStatusSchema,
+  /** How sure the critic is the finding is real, if offered (see {@link ConfidenceSchema}). */
+  confidence: ConfidenceSchema.optional(),
 });
 export type Finding = z.infer<typeof FindingSchema>;

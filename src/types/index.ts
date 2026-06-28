@@ -13,6 +13,7 @@ export { SeamKindSchema, SourceLocationSchema, SeamSchema } from "./seam.js";
 export {
   BlastRadiusRankSchema,
   VerificationStatusSchema,
+  ConfidenceSchema,
   FindingSchema,
 } from "./finding.js";
 export {
@@ -21,6 +22,9 @@ export {
 } from "./verification.js";
 export { ReviewTargetSchema, ReviewResultSchema } from "./review.js";
 
+// Derivations over the shapes.
+export { effectiveStatus } from "./status.js";
+
 // Inferred types.
 export type { TokenUsage, TokenUsagePurpose, Cost } from "./cost.js";
 export type { Seam, SeamKind, SourceLocation } from "./seam.js";
@@ -28,6 +32,7 @@ export type {
   Finding,
   BlastRadiusRank,
   VerificationStatus,
+  Confidence,
 } from "./finding.js";
 export type {
   VerificationResult,
