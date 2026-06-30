@@ -28,6 +28,7 @@ import {
   buildSynthesisPrompt,
   buildVerificationPrompt,
 } from "./prompts.js";
+import { gateReachabilityClaim } from "./reachability.js";
 
 /**
  * Re-attempts on a malformed RESPONSE, on top of the initial attempt. This is
@@ -186,13 +187,16 @@ export async function runVerification(
     },
     VerificationResponseSchema,
   );
-  return {
-    result: {
-      findingId: finding.id,
-      status: parsed.status,
-      evidence: parsed.evidence,
-      note: parsed.note,
-    },
-    usage,
-  };
+  // Programmatic reachability gate: down-scope a verified_real verdict whose
+  // external-reachability claim ("any importing module can overwrite X") names a
+  // symbol that isn't actually exported. The model already failed at exactly
+  // this judgment (Cluckcoach #2), so we check the source, not the prose.
+  const result = gateReachabilityClaim(finding, {
+    findingId: finding.id,
+    status: parsed.status,
+    evidence: parsed.evidence,
+    note: parsed.note,
+  }, seam.inputText);
+
+  return { result, usage };
 }
