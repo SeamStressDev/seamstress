@@ -20,6 +20,7 @@ import type { ModelCaller, ReviewConfig } from "./config.js";
 import { DEFAULT_REVIEW_CONFIG } from "./config.js";
 import { DEFAULT_REVIEW_CONCURRENCY, mapWithConcurrency } from "./concurrency.js";
 import type { FindingDraft } from "./parse.js";
+import { calibrateSeverity } from "./severity.js";
 import { runCritics, runSynthesis, runVerification } from "./stages.js";
 
 /** Dependencies and options for a single review. */
@@ -68,7 +69,20 @@ function toFinding(draft: FindingDraft, seamId: string, index: number): Finding 
  * contract on {@link ReviewResult} authoritative.
  */
 export function rankAndIdentify(drafts: FindingDraft[], seamId: string): Finding[] {
-  const ranked = [...drafts].sort(
+  // Severity calibration: cap a latent/architectural finding (no cited reachable
+  // path) at medium BEFORE ranking, so it doesn't outrank a genuinely-reachable
+  // one. A reachability discount on blastRadius only — confidence is untouched.
+  const calibrated = drafts.map((draft): FindingDraft => {
+    const { blastRadius, capNote } = calibrateSeverity(draft);
+    if (blastRadius === draft.blastRadius) return draft;
+    return {
+      ...draft,
+      blastRadius,
+      reasoning: capNote ? `${draft.reasoning} ${capNote}` : draft.reasoning,
+    };
+  });
+
+  const ranked = [...calibrated].sort(
     (a, b) => BLAST_RADIUS_ORDER[a.blastRadius] - BLAST_RADIUS_ORDER[b.blastRadius],
   );
   return ranked.map((draft, i) => toFinding(draft, seamId, i));

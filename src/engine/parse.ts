@@ -28,6 +28,13 @@ export const FindingDraftSchema = z.object({
   reasoning: z.string().min(1),
   /** Consequence if real (see BlastRadiusRankSchema). */
   blastRadius: BlastRadiusRankSchema,
+  /**
+   * Whether the harm has a concrete, currently-reachable path ("reachable") or
+   * is a latent/architectural "harden-this" concern with no demonstrated trigger
+   * ("latent"). Drives the severity reachability discount — distinct from
+   * confidence (is the claim true) and blastRadius (how bad if real). Optional.
+   */
+  reachability: z.enum(["reachable", "latent"]).optional(),
   /** How sure the critic is the finding is real — optional. */
   confidence: ConfidenceSchema.optional(),
   /** Plain-language "if real, here's what happens" — specific to this finding. */

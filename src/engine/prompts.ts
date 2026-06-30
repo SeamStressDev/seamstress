@@ -128,7 +128,20 @@ export const SYNTHESIS_SYSTEM =
   "describe the same underlying issue into one, drop those the source clearly " +
   "refutes, and keep a genuine issue even if only one critic raised it. Rank " +
   "the consolidated list by blast radius, most consequential first. Argue from " +
-  "the seam source, which is included.";
+  "the seam source, which is included.\n\n" +
+  "SEVERITY RUBRIC (blastRadius). critical/high is reserved for a CONCRETE, " +
+  "CURRENTLY-REACHABLE bad outcome — a real code path, input, or ordinary " +
+  "operation that actually produces the harm (e.g. 'two concurrent uploads both " +
+  "pass the check', 'any authenticated user can call X with their own id'). A " +
+  "LATENT / architectural / 'harden-this' concern — the schema 'structurally " +
+  "permits' a bad row, 'nothing prevents' a future misuse, a mutable export that " +
+  "no code actually overwrites, a missing check constraint with no path that " +
+  "creates the bad state — caps at MEDIUM, no matter how large the impact would " +
+  "be IF it happened. Magnitude-if-it-happened alone is NOT sufficient for " +
+  "critical/high; the bad outcome must be reachable now. For each finding also " +
+  "classify `reachability`: 'reachable' if you can name the triggering path, " +
+  "'latent' otherwise. This is separate from confidence (whether the claim is " +
+  "true) — a true claim can still be latent.";
 
 /**
  * Build the synthesis prompt: the seam source plus the blind critics' raw
@@ -160,7 +173,8 @@ export function buildSynthesisPrompt(
     "{\n" +
     '  "summary": "1-3 sentences on what the review concluded",\n' +
     '  "findings": [ { "description", "reasoning", "blastRadius", ' +
-    '"consequence", "confidence"?, "locations"? } ]\n' +
+    '"reachability": "reachable | latent", "consequence", "confidence"?, ' +
+    '"locations"? } ]\n' +
     "}";
 
   assertSeamPresent(user, seam);
