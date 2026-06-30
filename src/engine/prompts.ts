@@ -150,11 +150,17 @@ export function buildSynthesisPrompt(
     "Consolidate them into one ranked list. Dedupe overlapping findings, " +
     "resolve disagreement by reasoning against the source, and order by blast " +
     "radius (most consequential first).\n\n" +
+    "For each finding, also write a `consequence`: ONE plain-language sentence " +
+    "stating what actually happens if THIS specific issue is real — the concrete " +
+    "effect on the app or its users, grounded in this finding and the real code. " +
+    "It must be specific to the finding itself, NOT a generic statement about its " +
+    "category (e.g. an access/isolation bug must read as an access/isolation " +
+    "effect, even if the surrounding code touches billing). No jargon.\n\n" +
     "Respond with ONLY a JSON object in this exact shape:\n" +
     "{\n" +
     '  "summary": "1-3 sentences on what the review concluded",\n' +
     '  "findings": [ { "description", "reasoning", "blastRadius", ' +
-    '"confidence"?, "locations"? } ]\n' +
+    '"consequence", "confidence"?, "locations"? } ]\n' +
     "}";
 
   assertSeamPresent(user, seam);

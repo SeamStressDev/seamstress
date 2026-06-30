@@ -56,6 +56,7 @@ function toFinding(draft: FindingDraft, seamId: string, index: number): Finding 
     reasoning: draft.reasoning,
     blastRadius: draft.blastRadius,
     ...(draft.confidence !== undefined ? { confidence: draft.confidence } : {}),
+    ...(draft.consequence !== undefined ? { consequence: draft.consequence } : {}),
     ...(draft.locations !== undefined ? { locations: draft.locations } : {}),
   };
 }

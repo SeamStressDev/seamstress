@@ -42,16 +42,6 @@ const KIND_LABEL: Record<SeamKind, string> = {
   other: "High-risk logic",
 };
 
-/** What it means for the builder if a finding of this kind is real. */
-const KIND_CONSEQUENCE: Record<SeamKind, string> = {
-  money_path: "money can move the wrong way — incorrect charges, lost revenue, or someone reaching billing they shouldn't.",
-  auth: "the wrong person can get in, or gain powers they shouldn't have.",
-  pii: "personal data can be exposed to people who shouldn't see it.",
-  data_deletion: "data can be destroyed — possibly someone else's, possibly with no undo.",
-  safety_delivery: "a message that has to arrive can silently fail to.",
-  other: "a high-risk operation can behave incorrectly.",
-};
-
 /** Soften internal/security jargon into plain phrasing for the builder. */
 function softenJargon(text: string): string {
   return text
@@ -80,11 +70,18 @@ function renderFinding(map: SeamMap, finding: Finding, verifications: Verificati
     ? `${finding.locations[0].path}${finding.locations[0].startLine ? `:${finding.locations[0].startLine}` : ""}`
     : map.seams.find((s) => s.id === finding.seamId)?.sources[0]?.path ?? "—";
 
+  // The consequence is the finding's OWN, model-emitted line — never derived
+  // from the seam `kind` (that produced category-mislabeled consequences). If
+  // the finding carries none, the line is omitted rather than back-filled.
+  const consequenceLine = finding.consequence
+    ? `  - **If this is wrong:** ${softenJargon(finding.consequence)}\n`
+    : "";
+
   return (
     `### ${BLAST_LABEL[finding.blastRadius]} — ${softenJargon(finding.description)}\n\n` +
     `  - **Where:** \`${where}\`\n` +
     `  - **Area:** ${KIND_LABEL[kind]}\n` +
-    `  - **If this is wrong:** ${KIND_CONSEQUENCE[kind]}\n` +
+    consequenceLine +
     evidenceBlock(v) +
     "\n"
   );

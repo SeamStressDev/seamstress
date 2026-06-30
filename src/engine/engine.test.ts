@@ -257,6 +257,23 @@ describe("rankAndIdentify — blast-radius ranking + identity (Stage 2 output)",
     expect("confidence" in (finding as Finding)).toBe(false);
     expect("locations" in (finding as Finding)).toBe(false);
   });
+
+  it("carries a synthesized draft's consequence onto the Finding", () => {
+    const consequence = "one tenant could act on another tenant's data.";
+    const [finding] = rankAndIdentify(
+      [{ description: "d", reasoning: "r", blastRadius: "high", consequence }],
+      "seam-1",
+    );
+    expect(finding?.consequence).toBe(consequence);
+  });
+
+  it("omits consequence when the draft carries none (absence handled gracefully)", () => {
+    const [finding] = rankAndIdentify(
+      [{ description: "d", reasoning: "r", blastRadius: "high" }],
+      "seam-1",
+    );
+    expect("consequence" in (finding as Finding)).toBe(false);
+  });
 });
 
 describe("verification stage — maps to VerificationResult + derived status", () => {

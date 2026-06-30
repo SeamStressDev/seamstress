@@ -74,6 +74,15 @@ export const FindingSchema = z.object({
   blastRadius: BlastRadiusRankSchema,
   /** Why the reviewer believes this is an issue — the chain of reasoning. */
   reasoning: z.string(),
+  /**
+   * One plain-language sentence on what actually happens if this specific issue
+   * is real — emitted by the analyzing model, grounded in THIS finding and the
+   * real code, NOT in the seam's category. Optional. The report displays this
+   * directly; it must never be synthesized from the seam `kind` (that produced
+   * mislabeled consequences — an isolation bug reading as "money can move the
+   * wrong way" because its seam was filed under money_path).
+   */
+  consequence: z.string().optional(),
   /** How sure the critic is the finding is real, if offered (see {@link ConfidenceSchema}). */
   confidence: ConfidenceSchema.optional(),
 });

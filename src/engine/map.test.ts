@@ -16,7 +16,7 @@ import { mapWithConcurrency } from "./concurrency.js";
 import { assessCoverage, mapSeams } from "./map.js";
 import type { SeamMap } from "./map.js";
 import { renderSeamMap } from "./report.js";
-import type { BlastRadiusRank, Cost, Finding, Seam, VerificationResult } from "../types/index.js";
+import type { BlastRadiusRank, Cost, Finding, Seam, SeamKind, VerificationResult } from "../types/index.js";
 
 const ZERO_COST: Cost = {
   totalInputTokens: 0,
@@ -28,13 +28,14 @@ const ZERO_COST: Cost = {
   costUsdByPurpose: { seam_detection: 0, critic: 0, synthesis: 0, verification: 0, other: 0 },
 };
 
-/** Build a synthetic SeamMap from (description, blastRadius, verified?) tuples for render tests. */
+/** Build a synthetic SeamMap from (description, blastRadius, verified?, consequence?) tuples for render tests. */
 function mapFrom(
-  specs: { desc: string; blast: BlastRadiusRank; verified: boolean }[],
+  specs: { desc: string; blast: BlastRadiusRank; verified: boolean; consequence?: string }[],
+  seamKind: SeamKind = "auth",
 ): SeamMap {
   const seam: Seam = {
     id: "seam-1",
-    kind: "auth",
+    kind: seamKind,
     label: "actions/role.ts",
     sources: [{ path: "actions/role.ts", startLine: 1, endLine: 9 }],
     inputText: "x",
@@ -45,6 +46,7 @@ function mapFrom(
     description: s.desc,
     reasoning: "r",
     blastRadius: s.blast,
+    ...(s.consequence !== undefined ? { consequence: s.consequence } : {}),
   }));
   const verifications: VerificationResult[] = specs.map((s, i) => ({
     findingId: `seam-1:finding-${i + 1}`,
@@ -320,5 +322,35 @@ describe("renderSeamMap — builder-facing report", () => {
 
   it("does not show a false caveat for a validated stack", () => {
     expect(renderSeamMap(map)).not.toMatch(/Coverage note/i);
+  });
+});
+
+describe("renderSeamMap — consequence is bound to the finding, not the seam kind", () => {
+  // The Kovasite #8 shape: an isolation finding that lives on a money_path seam.
+  // Its consequence must read as isolation/access — NOT the kind-derived
+  // "money can move the wrong way" that the old kind-keyed lookup produced.
+  const ISOLATION_CONSEQUENCE =
+    "one logged-in tenant could act on another tenant's domain — a cross-tenant access problem.";
+
+  const map = mapFrom(
+    [{ desc: "refreshMyDomainStatus loads a tenant with no owner_id filter", blast: "high", verified: true, consequence: ISOLATION_CONSEQUENCE }],
+    "money_path", // the seam was filed under money — the consequence must NOT inherit that
+  );
+  const report = renderSeamMap(map);
+
+  it("renders the finding's OWN consequence under 'If this is wrong'", () => {
+    expect(report).toContain(`**If this is wrong:** ${ISOLATION_CONSEQUENCE}`);
+  });
+
+  it("does NOT render the seam-kind generic consequence (no money-mislabel)", () => {
+    expect(report).not.toMatch(/money can move the wrong way/i);
+    // The Area line still reflects the seam's category — that part is legitimate.
+    expect(report).toContain("**Area:** Money & billing");
+  });
+
+  it("omits the consequence line entirely when a finding carries none (no kind fallback)", () => {
+    const r = renderSeamMap(mapFrom([{ desc: "some finding", blast: "critical", verified: true }], "auth"));
+    expect(r).not.toContain("**If this is wrong:**");
+    expect(r).not.toMatch(/the wrong person can get in/i); // the old auth-kind generic
   });
 });

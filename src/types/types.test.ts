@@ -113,6 +113,22 @@ describe("FindingSchema", () => {
         .success,
     ).toBe(false);
   });
+
+  // Consequence is OPTIONAL and model-emitted (bound to the finding, not the kind).
+  it("parses a finding without a consequence", () => {
+    expect(FindingSchema.parse(validFinding).consequence).toBeUndefined();
+  });
+
+  it("parses a finding with a plain-language consequence", () => {
+    const c = "one tenant could act on another tenant's domain.";
+    expect(FindingSchema.parse({ ...validFinding, consequence: c }).consequence).toBe(c);
+  });
+
+  it("rejects a non-string consequence", () => {
+    expect(
+      FindingSchema.safeParse({ ...validFinding, consequence: 42 }).success,
+    ).toBe(false);
+  });
 });
 
 describe("effectiveStatus (Decision 1: derived, not stored)", () => {

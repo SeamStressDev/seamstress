@@ -30,6 +30,8 @@ export const FindingDraftSchema = z.object({
   blastRadius: BlastRadiusRankSchema,
   /** How sure the critic is the finding is real — optional. */
   confidence: ConfidenceSchema.optional(),
+  /** Plain-language "if real, here's what happens" — specific to this finding. */
+  consequence: z.string().optional(),
   /** Optional precise location(s) the finding points at. */
   locations: z.array(SourceLocationSchema).optional(),
 });
