@@ -21,7 +21,7 @@
  * returns canned, purpose-keyed responses — so these are free, deterministic,
  * and need no API key. They pin the behavior that made the validation runs
  * trustworthy: the blind/independent critic stage, the placeholder guard, the
- * derive-don't-store status rule, and clean COGS attribution by purpose.
+ * derive-don't-store status rule, and clean cost attribution by purpose.
  */
 
 import { describe, expect, it, vi } from "vitest";
@@ -71,7 +71,7 @@ type ByPurpose = Partial<Record<string, string>>;
 
 /**
  * A fake ModelCaller: returns the canned text for each call's `purpose`, priced
- * through the real {@link toTokenUsage} so COGS is non-zero and attributed.
+ * through the real {@link toTokenUsage} so cost is non-zero and attributed.
  */
 function fakeClient(byPurpose: ByPurpose, model = "claude-haiku-4-5"): ModelCaller {
   return {
@@ -378,7 +378,7 @@ describe("review parse-retry (Fix 2) — money-path seams not punted", () => {
 
     expect(result.status).toBe("verified_real"); // produced a real verdict
     expect(spy).toHaveBeenCalledTimes(2); // one re-ask
-    expect(usage.inputTokens).toBe(20); // both attempts counted toward COGS
+    expect(usage.inputTokens).toBe(20); // both attempts counted toward cost
   });
 
   it("gives up after the bounded budget and throws, so per-seam isolation can take over", async () => {
@@ -392,7 +392,7 @@ describe("review parse-retry (Fix 2) — money-path seams not punted", () => {
   });
 });
 
-describe("reviewSeam — full mocked pipeline + COGS by purpose", () => {
+describe("reviewSeam — full mocked pipeline + cost by purpose", () => {
   it("produces a ranked, verified ReviewResult with cost attributed per purpose", async () => {
     const client = fakeClient({
       critic: CRITIC_JSON,
@@ -431,7 +431,7 @@ describe("reviewSeam — full mocked pipeline + COGS by purpose", () => {
       ),
     ).toBe(true);
 
-    // COGS attribution: every stage shows up with non-zero cost (the headline —
+    // Cost attribution: every stage shows up with non-zero cost (the headline —
     // verification cost is finally a measured fraction of the review).
     const byPurpose = result.cost.costUsdByPurpose;
     expect(byPurpose.critic).toBeGreaterThan(0);

@@ -40,7 +40,7 @@ export type ReviewTarget = z.infer<typeof ReviewTargetSchema>;
 
 /**
  * The complete output of reviewing a target's seams: what was reviewed, the
- * seams found, the ranked findings, the full COGS accounting, and a synthesis.
+ * seams found, the ranked findings, the full cost accounting, and a synthesis.
  */
 export const ReviewResultSchema = z.object({
   /** What was reviewed (repo + commit). */
@@ -60,12 +60,12 @@ export const ReviewResultSchema = z.object({
    */
   verifications: z.array(VerificationResultSchema),
   /**
-   * Every model call made during the review, in order. The raw per-call COGS
+   * Every model call made during the review, in order. The raw per-call cost
    * primitive — the aggregate in {@link ReviewResultSchema} `cost` is derived
    * from this.
    */
   usages: z.array(TokenUsageSchema),
-  /** Aggregated COGS for the whole review, derived from `usages`. */
+  /** Aggregated cost for the whole review, derived from `usages`. */
   cost: CostSchema,
   /** Human-readable synthesis summarizing what the review concluded. */
   synthesis: z.string(),

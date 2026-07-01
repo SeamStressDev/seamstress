@@ -29,8 +29,8 @@
  * - A COVERAGE SIGNAL — the heuristic's recall ceiling is per-stack and a missed
  *   seam is otherwise SILENT. The map detects the repo's stack and, when it is
  *   not one of the validated stacks (JS/TS, Python), says so honestly in the
- *   output. A free map that silently under-reports risk is the value-prop killer.
- * - POOLED COGS across detection + review.
+ *   output. A map that silently under-reports risk is worse than no map.
+ * - POOLED cost across detection + review.
  */
 
 import { existsSync } from "node:fs";

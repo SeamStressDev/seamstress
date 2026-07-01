@@ -20,8 +20,8 @@
  * Live review runner. Loads ONE assembled seam from a JSON fixture, runs the
  * full real pipeline (blind critics → synthesis → verification) against the
  * Anthropic API, and prints the ranked findings, each verification verdict with
- * its quoted evidence, and the COGS broken down by purpose — the first time
- * verification cost is measured as a fraction of a real review.
+ * its quoted evidence, and the cost broken down by purpose, including
+ * verification cost as a fraction of the review.
  *
  * Usage (needs a real key in .env):
  *   npm run review                                    # default Resend fixture

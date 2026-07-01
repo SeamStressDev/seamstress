@@ -19,7 +19,7 @@
 /**
  * Live detector runner. Scans a repo, runs the hybrid detector (heuristic
  * pre-filter → per-file-isolated LLM judgment), and prints the detected seams
- * (kind, path, why), what was rejected/errored, and detection COGS.
+ * (kind, path, why), what was rejected/errored, and detection cost.
  *
  * Usage (needs a real key in .env):
  *   npm run detect -- /path/to/repo

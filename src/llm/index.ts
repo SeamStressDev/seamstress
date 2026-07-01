@@ -17,7 +17,7 @@
  */
 
 /**
- * The LLM layer: a thin Anthropic API client and the pricing/COGS primitives
+ * The LLM layer: a thin Anthropic API client and the pricing/cost primitives
  * the rest of the engine bills against.
  */
 

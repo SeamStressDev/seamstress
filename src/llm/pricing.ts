@@ -17,7 +17,7 @@
  */
 
 /**
- * Model pricing and COGS computation.
+ * Model pricing and cost computation.
  *
  * This is where clean cost-of-goods finally comes from: real per-call token
  * splits priced against a known table, with the cache multipliers applied so
@@ -46,7 +46,7 @@ const CACHE_READ_MULTIPLIER = 0.1;
  * Pricing per 1M tokens (USD), keyed by exact Anthropic model ID.
  *
  * Source: Anthropic model pricing as of 2026-06. Keep these in sync when models
- * or prices change — COGS accuracy depends on it.
+ * or prices change — cost accuracy depends on it.
  */
 export const MODEL_PRICING: Record<string, ModelPricing> = {
   "claude-fable-5": { inputPer1M: 10, outputPer1M: 50 },
@@ -67,7 +67,7 @@ export interface RawUsage {
 
 /**
  * Thrown when a model ID has no pricing entry. Failing loudly here keeps a typo
- * from silently producing a $0 COGS number.
+ * from silently producing a $0 cost number.
  */
 export class UnknownModelPricingError extends Error {
   constructor(public readonly model: string) {
@@ -125,7 +125,7 @@ export function computeCallCostUsd(model: string, usage: RawUsage): number {
 
 /**
  * Build a fully-priced {@link TokenUsage} record from a raw API usage object.
- * This is the bridge from the SDK's `usage` shape to the engine's COGS shape.
+ * This is the bridge from the SDK's `usage` shape to the engine's cost shape.
  */
 export function toTokenUsage(
   model: string,
@@ -154,7 +154,7 @@ const EMPTY_BY_PURPOSE: Record<TokenUsagePurpose, number> = {
 /**
  * Sum a list of per-call {@link TokenUsage} records into an aggregate
  * {@link Cost}, broken down by model and by pipeline phase. This is the
- * bottom-line COGS that lands on a ReviewResult.
+ * bottom-line cost that lands on a ReviewResult.
  */
 export function aggregateCost(usages: TokenUsage[]): Cost {
   const cost: Cost = {

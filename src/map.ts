@@ -17,7 +17,7 @@
  */
 
 /**
- * The free seam-map runner — the validation instrument.
+ * The seam-map runner.
  *
  * Point it at a repo: it detects the seams, reviews them, and prints a readable
  * risk map you can act on. Optionally writes the report to a .md file (clean —

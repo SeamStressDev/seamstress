@@ -19,7 +19,7 @@
 /**
  * The review engine: given an assembled {@link Seam}, run blind critics →
  * synthesis → verification and produce a ranked {@link ReviewResult} with clean
- * COGS broken down by purpose. The validation-run flow, ported into software.
+ * cost accounting broken down by purpose.
  *
  * Seam *detection* is Build 3 and deliberately not here; the engine takes a seam
  * as input and reviews it.

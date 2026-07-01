@@ -17,7 +17,7 @@
  */
 
 /**
- * API client tests — protects the COGS-measurement path. Fully mocked: no real
+ * API client tests — protects the cost-measurement path. Fully mocked: no real
  * API call is made, so these are free and deterministic. (The only real call in
  * this build is the smoke test in src/index.ts, run by hand with a key.)
  */

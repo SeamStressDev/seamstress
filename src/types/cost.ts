@@ -17,12 +17,12 @@
  */
 
 /**
- * Token accounting and COGS (cost of goods sold) shapes.
+ * Token accounting and cost shapes.
  *
  * Every model call the engine makes returns a {@link TokenUsage} record. The
  * validation runs could only ever see an aggregate token count; because the
  * engine now calls the Anthropic API directly, we capture the real
- * input/output split (and the cache split) per call, so COGS is finally
+ * input/output split (and the cache split) per call, so cost is finally
  * measured cleanly — including the seam-detection and verification costs the
  * earlier runs left unmetered.
  *
@@ -35,7 +35,7 @@ import { z } from "zod";
 
 /**
  * Which phase of the review pipeline a model call belongs to. Lets us attribute
- * COGS to the part of the pipeline that incurred it (e.g. "verification cost us
+ * cost to the part of the pipeline that incurred it (e.g. "verification cost us
  * 40% of the run") rather than only knowing the run total.
  */
 export const TokenUsagePurposeSchema = z.enum([
@@ -74,7 +74,7 @@ export const TokenUsageSchema = z.object({
 export type TokenUsage = z.infer<typeof TokenUsageSchema>;
 
 /**
- * Aggregated COGS across all model calls in a review. Produced by summing the
+ * Aggregated cost across all model calls in a review. Produced by summing the
  * per-call {@link TokenUsage} records (see `src/llm/pricing.ts#aggregateCost`).
  * This is what surfaces on a {@link ReviewResult} as the bottom-line cost.
  */
@@ -87,7 +87,7 @@ export const CostSchema = z.object({
   totalCostUsd: z.number().nonnegative(),
   /** Dollar cost broken down by model ID, for mix analysis. */
   costUsdByModel: z.record(z.string(), z.number()),
-  /** Dollar cost broken down by pipeline phase, for COGS attribution. */
+  /** Dollar cost broken down by pipeline phase, for cost attribution. */
   costUsdByPurpose: z.record(TokenUsagePurposeSchema, z.number()),
 });
 export type Cost = z.infer<typeof CostSchema>;

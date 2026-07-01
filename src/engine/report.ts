@@ -17,16 +17,16 @@
  */
 
 /**
- * Render a {@link SeamMap} into the builder-facing risk report — the artifact a
- * real founder reads. The rules that make it the *product*, not a JSON dump:
+ * Render a {@link SeamMap} into the risk report — the artifact the repo's owner
+ * actually reads. The rules that make it a readable report, not a JSON dump:
  *
- * - Plain language, consequence-first. The buyer speaks fear, not methodology:
+ * - Plain language, consequence-first. Describe impact, not methodology:
  *   "anyone logged in can change their own role to admin", never "an IDOR in the
  *   portal action" or "the synthesis surfaced…". Internal jargon is softened.
  * - Lead with the punch. An executive summary of ONLY the critical+high verified
  *   findings comes first — the 2-3 most consequential issues — so a
- *   skimming founder sees them before a wall of lower-severity notes. The whole
- *   wedge is "judgment, not noise"; the report has to embody it.
+ *   skimming reader sees them before a wall of lower-severity notes. The goal
+ *   is "judgment, not noise"; the report has to embody it.
  * - Verified issues are the headline, each backed by the exact quoted code — the
  *   trust signal that separates SeamStress from a scanner that guesses. The
  *   medium/low tail and judgment calls ("worth a look") are kept below, collapsed
@@ -50,7 +50,7 @@ const BLAST_LABEL: Record<BlastRadiusRank, string> = {
   low: "⚪ Low",
 };
 
-/** Plain, buyer-facing label for each seam kind. */
+/** Plain reader-facing label for each seam kind. */
 const KIND_LABEL: Record<SeamKind, string> = {
   money_path: "Money & billing",
   auth: "Login & access control",
@@ -60,7 +60,7 @@ const KIND_LABEL: Record<SeamKind, string> = {
   other: "High-risk logic",
 };
 
-/** Soften internal/security jargon into plain phrasing for the builder. */
+/** Soften internal/security jargon into plain phrasing for the reader. */
 function softenJargon(text: string): string {
   return text
     .replace(/\bIDOR\b/g, "broken access control (one user reaching another's data)")
@@ -121,7 +121,7 @@ function compactList(map: SeamMap, findings: Finding[], moreLabel: string): stri
   return shown;
 }
 
-/** Render the full builder-facing risk map as markdown. */
+/** Render the full risk map as markdown. */
 export function renderSeamMap(map: SeamMap): string {
   const { review } = map;
   const verifications = review.verifications;
@@ -256,7 +256,7 @@ export function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
-/** Plain, buyer-facing severity words (the chip/badge text). */
+/** Plain reader-facing severity words (the chip/badge text). */
 const SEVERITY_WORD: Record<BlastRadiusRank, string> = {
   critical: "Critical",
   high: "High",
@@ -272,7 +272,7 @@ function findingWhere(map: SeamMap, finding: Finding): string {
 }
 
 /**
- * Render the builder-facing risk map as a self-contained static HTML report —
+ * Render the risk map as a self-contained static HTML report —
  * sibling of {@link renderSeamMap}, same `SeamMap`, HTML instead of markdown.
  * Reuses the exact same derived views (effectiveStatus verified-only filter,
  * kindOf, severity counts) so the two reports agree on what is verified.

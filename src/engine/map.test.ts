@@ -236,7 +236,7 @@ describe("assessCoverage — honest stack signal", () => {
 });
 
 describe("mapSeams — end-to-end orchestration", () => {
-  it("detects, reviews, pools COGS (detection + review), and surfaces seams", async () => {
+  it("detects, reviews, pools cost (detection + review), and surfaces seams", async () => {
     const repo = makeRepo({
       "package.json": '{"name":"x"}',
       "actions/role.ts": '"use server";\nimport { auth } from "@/auth";\nexport async function setRole(userId, role) { if (session.id === userId) db.user.update(); }',
@@ -291,7 +291,7 @@ describe("mapSeams — per-seam isolation", () => {
   });
 });
 
-describe("renderSeamMap — builder-facing report", () => {
+describe("renderSeamMap — rendered report", () => {
   let map: SeamMap;
 
   it("renders verified findings prominently with quoted evidence, in plain language", async () => {
@@ -307,11 +307,12 @@ describe("renderSeamMap — builder-facing report", () => {
     expect(report).toContain("anyone logged in can change their own role to admin");
     // Quoted real code is shown as proof (the trust signal).
     expect(report).toContain("setRole");
-    // No internal jargon leaks into the builder-facing text.
+    // No internal jargon leaks into the report text.
     expect(report).not.toMatch(/synthesis/i);
     expect(report).not.toMatch(/\bIDOR\b/);
     expect(report).not.toMatch(/blast radius/i);
-    // COGS is NOT in the builder-facing report.
+    // Cost accounting is NOT in the report (the regex literal stays "COGS"
+    // to pin that the old wording never resurfaces in rendered output).
     expect(report).not.toMatch(/\$\d|COGS|token/i);
   });
 

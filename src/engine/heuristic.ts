@@ -31,7 +31,7 @@
  *
  * 2. CONTENT SAFETY NET — the heuristic is itself a pattern-matcher, so a
  *    *signal-light* seam (real money/auth/deletion logic with none of the
- *    obvious keywords or imports — exactly the business-logic seam the wedge
+ *    obvious keywords or imports — exactly the business-logic seam SeamStress
  *    claims to catch) would slip a keyword filter. A separate risk-shape pass
  *    (DB writes/deletes, permission branches, money arithmetic, payment calls)
  *    rescues such files even with a zero keyword score. This is the real tension

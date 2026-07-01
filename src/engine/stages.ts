@@ -20,7 +20,7 @@
  * The three pipeline stages as independent, individually-testable functions:
  * blind critics → synthesis → verification. Each takes the model caller as a
  * dependency, returns its structured product plus the {@link TokenUsage} records
- * it incurred (tagged with the right `purpose` for COGS attribution), and does
+ * it incurred (tagged with the right `purpose` for cost attribution), and does
  * no orchestration of its own — `pipeline.ts` wires them together.
  */
 
@@ -59,7 +59,7 @@ import { gateReachabilityClaim } from "./reachability.js";
  */
 export const DEFAULT_PARSE_RETRIES = 2;
 
-/** Sum repeated attempts into one usage so wasted re-asks still count toward COGS. */
+/** Sum repeated attempts into one usage so wasted re-asks still count toward cost. */
 function mergeUsages(usages: TokenUsage[]): TokenUsage {
   const first = usages[0]!;
   if (usages.length === 1) return first;

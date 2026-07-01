@@ -21,7 +21,7 @@
  *
  * Makes ONE real, cheap model call (trivial prompt to Haiku) and prints the
  * response plus the real token usage and computed cost — proving the API path
- * works end to end, the key is wired, and the COGS primitive returns clean
+ * works end to end, the key is wired, and the cost primitive returns clean
  * numbers. Run with a real key in `.env`:
  *
  *   npm run smoke

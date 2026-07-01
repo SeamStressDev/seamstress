@@ -165,13 +165,13 @@ export interface DetectionResult {
   errors: JudgedCandidate[];
   /** Per-call usage across the run. */
   usages: TokenUsage[];
-  /** Aggregated detection COGS. */
+  /** Aggregated detection cost. */
   cost: Cost;
 }
 
 /**
  * Judge a batch of candidates with per-file isolation, then collect the
- * confirmed seams and pooled COGS. Candidates run concurrently; a failure in one
+ * confirmed seams and pooled cost. Candidates run concurrently; a failure in one
  * never rejects the batch (each {@link judgeCandidate} resolves).
  */
 export async function judgeCandidates(

@@ -17,7 +17,7 @@
  */
 
 /**
- * COGS math tests. Pure functions, no API key needed — `npm test` runs clean
+ * Cost math tests. Pure functions, no API key needed — `npm test` runs clean
  * without secrets. This is the cost primitive the validation runs never had
  * cleanly, so it's worth pinning down.
  */
@@ -47,7 +47,7 @@ describe("pricingFor", () => {
 
   // Regression: the Anthropic API echoes back the full dated model ID even when
   // the alias is requested, so the exact-match lookup threw UnknownModelPricing-
-  // Error mid-COGS. pricingFor must resolve a dated ID to its alias's pricing.
+  // Error mid-computation. pricingFor must resolve a dated ID to its alias's pricing.
   it("resolves a dated Haiku ID to the claude-haiku-4-5 pricing", () => {
     expect(pricingFor("claude-haiku-4-5-20251001")).toEqual({
       inputPer1M: 1,

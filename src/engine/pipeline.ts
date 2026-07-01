@@ -19,9 +19,8 @@
 /**
  * The review pipeline: given one assembled {@link Seam}, run blind critics →
  * synthesis → verification and assemble a ranked {@link ReviewResult} with clean
- * COGS broken down by purpose. This is the validation-run flow ported into
- * committed software. Seam *detection* (finding which code is a seam) is Build 3
- * and explicitly not here — this takes a seam as input and reviews it.
+ * cost broken down by purpose. Seam *detection* (finding which code is a seam)
+ * is Build 3 and explicitly not here — this takes a seam as input and reviews it.
  */
 
 import { aggregateCost } from "../llm/index.js";
@@ -110,8 +109,8 @@ export function rankAndIdentify(drafts: FindingDraft[], seamId: string): Finding
  * Review one seam end to end. Stages run in sequence (synthesis needs the
  * critics; verification needs the synthesized findings); within a stage, calls
  * fan out concurrently. Every call's usage is collected so {@link aggregateCost}
- * can break COGS down by model AND by purpose — the first time verification cost
- * is measured as a fraction of the review.
+ * can break cost down by model AND by purpose, including verification cost as a
+ * fraction of the review.
  */
 export async function reviewSeam(
   seam: Seam,
@@ -211,7 +210,7 @@ export function mergeReviews(
 }
 
 /**
- * Review MANY seams and pool the result into one {@link ReviewResult} with COGS
+ * Review MANY seams and pool the result into one {@link ReviewResult} with cost
  * aggregated across all of them — the clean join between detection (which
  * produces many seams) and review (Build 2's per-seam pipeline). Resolves the
  * Build 2 awkward-spot where each seam reviewed into its own cost silo.

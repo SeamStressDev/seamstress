@@ -21,7 +21,7 @@
  * The heuristic is pure (scored on synthetic source strings); the judge is a
  * fake ModelCaller returning canned JSON. Pins the Phase 2 refinements
  * (server-scope + content safety net), the precision discipline, per-file
- * isolation, conclusion-blinding, and the reviewSeams COGS pooling.
+ * isolation, conclusion-blinding, and the reviewSeams cost pooling.
  */
 
 import { describe, expect, it } from "vitest";
@@ -120,11 +120,11 @@ describe("heuristic — server-scope refinement", () => {
   });
 });
 
-describe("heuristic — content safety net (the value-prop tension)", () => {
+describe("heuristic — content safety net", () => {
   it("rescues a signal-LIGHT but risk-SHAPED file with no obvious keywords", () => {
     // No stripe/auth/webhook keywords at all — a generically named util doing
     // permission-gated money math + a delete. The keyword score alone is ~0;
-    // the safety net must lift it to candidacy so the wedge's non-obvious seams
+    // the safety net must lift it to candidacy so non-obvious seams
     // are not silently filtered out.
     const c = scoreSource(
       "lib/ledger.ts",
@@ -244,7 +244,7 @@ describe("seam assembly + conclusion-blinding", () => {
   });
 });
 
-describe("reviewSeams — pools COGS across multiple seams", () => {
+describe("reviewSeams — pools cost across multiple seams", () => {
   const seamA = assembleSeam(candidate("actions/a.ts"), "await charge();", "money_path");
   const seamB = assembleSeam(candidate("actions/b.ts"), "if (role) allow();", "auth");
 

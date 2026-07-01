@@ -21,7 +21,7 @@
  *
  * This is the primitive every part of the review pipeline calls. It does one
  * thing: make a single model call and return the response text **plus the real
- * token usage** (input/output split, model) so COGS is captured at the source
+ * token usage** (input/output split, model) so cost is captured at the source
  * rather than discarded. Nothing about critics, synthesis, or verification
  * lives here — just the call, usage capture, and basic error handling.
  */
@@ -45,7 +45,7 @@ export interface CallModelParams {
   /** Output token cap. Defaults to a conservative 4096. */
   maxTokens?: number;
   /**
-   * Which pipeline phase this call belongs to, for COGS attribution. Defaults
+   * Which pipeline phase this call belongs to, for cost attribution. Defaults
    * to `other`.
    */
   purpose?: TokenUsagePurpose;
@@ -82,7 +82,7 @@ export interface ModelResponseLike {
 /**
  * Pure function: turn a raw Anthropic response into a {@link CallModelResult}.
  *
- * This is the COGS-measurement path — it pulls the real input/output token
+ * This is the cost-measurement path — it pulls the real input/output token
  * split and the model ID out of the response and prices them. Kept pure and
  * exported so it can be unit-tested without touching the network.
  */
@@ -162,7 +162,7 @@ export class LlmClient {
 
   /**
    * Make one model call, retrying transient failures with backoff. Returns the
-   * response text plus the real token usage — the clean COGS primitive the whole
+   * response text plus the real token usage — the clean cost primitive the whole
    * engine bills against. Permanent errors (400/401/...) fail fast on the first
    * attempt; a transient error that survives the retry budget propagates to the
    * caller (the run fails cleanly, not silently).
