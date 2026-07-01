@@ -4,6 +4,7 @@
   "description": "Seam-scoped code review engine — disciplined cross-model judgment on high-risk code seams.",
   "type": "module",
   "private": true,
+  "license": "AGPL-3.0-only",
   "engines": {
     "node": ">=20"
   },
