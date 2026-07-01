@@ -8,6 +8,7 @@
  *   npm run detect -- /path/to/repo --max 40   # cap candidates judged
  */
 
+import { reportFatal, requireRepoDir } from "./cli.js";
 import { detectSeams } from "./engine/index.js";
 import { loadEnvFile } from "./env.js";
 import { LlmClient } from "./llm/index.js";
@@ -21,6 +22,7 @@ async function main(): Promise<void> {
     process.exitCode = 1;
     return;
   }
+  requireRepoDir(repoPath);
   const maxIdx = process.argv.indexOf("--max");
   const maxCandidates = maxIdx !== -1 ? Number(process.argv[maxIdx + 1]) : undefined;
 
@@ -71,7 +73,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  console.error("Detection run failed:");
-  console.error(err);
+  reportFatal("Detection run failed", err);
   process.exitCode = 1;
 });

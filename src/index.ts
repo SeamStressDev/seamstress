@@ -9,6 +9,7 @@
  *   npm run smoke
  */
 
+import { reportFatal } from "./cli.js";
 import { loadEnvFile } from "./env.js";
 import { DEFAULT_SMOKE_MODEL, LlmClient } from "./llm/index.js";
 
@@ -38,7 +39,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  console.error("Smoke test failed:");
-  console.error(err);
+  reportFatal("Smoke test failed", err);
   process.exitCode = 1;
 });

@@ -13,6 +13,7 @@
  */
 
 import { writeFileSync } from "node:fs";
+import { reportFatal, requireRepoDir } from "./cli.js";
 import { mapSeams, renderSeamMap, renderSeamMapHtml, renderCostSummary } from "./engine/index.js";
 import { loadEnvFile } from "./env.js";
 import { LlmClient } from "./llm/index.js";
@@ -31,6 +32,7 @@ async function main(): Promise<void> {
     process.exitCode = 1;
     return;
   }
+  requireRepoDir(repoPath);
   const out = flagValue("--out");
   const htmlOut = flagValue("--html");
   const maxRaw = flagValue("--max");
@@ -61,7 +63,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  console.error("Seam-map run failed:");
-  console.error(err);
+  reportFatal("Seam-map run failed", err);
   process.exitCode = 1;
 });

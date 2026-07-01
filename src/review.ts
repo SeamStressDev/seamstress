@@ -11,6 +11,7 @@
  */
 
 import { readFileSync } from "node:fs";
+import { reportFatal } from "./cli.js";
 import { reviewSeam } from "./engine/index.js";
 import { loadEnvFile } from "./env.js";
 import { LlmClient } from "./llm/index.js";
@@ -82,7 +83,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err: unknown) => {
-  console.error("Review run failed:");
-  console.error(err);
+  reportFatal("Review run failed", err);
   process.exitCode = 1;
 });
