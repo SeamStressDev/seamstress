@@ -2,7 +2,7 @@
 
 **Question:** seam *detection* (finding which code IS a seam) is unproven — every run so far hand-located the seam. Before building a detector, does the **hybrid** approach (cheap heuristic narrows WHERE to look → LLM confirms/classifies each candidate) find the real seams **without flooding false positives**? Same FP discipline that gated the review before Build 2.
 
-**Method (known ground truth, n=1 repo):** `mickasmt/next-saas-stripe-starter` @ `a78d130`, 184 source files (`.ts`/`.tsx`, excl. `node_modules`/`.d.ts`). Hand-run, chunked, real source asserted in every prompt (placeholder lesson):
+**Method (known ground truth, n=1 repo):** a public Next.js/Stripe SaaS starter, 184 source files (`.ts`/`.tsx`, excl. `node_modules`/`.d.ts`), with hand-identified ground-truth seams. Hand-run, chunked, real source asserted in every prompt (placeholder lesson):
 1. **Heuristic pre-filter** (free, no LLM): score each file on path/name + import + content-keyword signals; candidates = score ≥ 3.
 2. **LLM judgment** (Sonnet 4.6, one call per candidate, `purpose: seam_detection`): is this a seam, and what kind? System prompt explicitly says *most files are NOT seams; flag only files that perform/guard a high-risk operation; flagging everything is useless.*
 
@@ -47,11 +47,11 @@ money_path for all Stripe/billing/webhook/portal/subscription; auth for role/mid
 
 ## Cost — detection finally measured
 
-**$0.088 for the whole repo** (28 Sonnet calls, 20,077 in / 1,858 out). The heuristic judged only 15% of files; judging all 184 would be ~$0.58. **The pre-filter is what makes the free-map economically viable** — ~6.5× cheaper than LLM-reading every file. Per-repo detection on the order of **$0.09** is the previously-unmetered line, now measured.
+The heuristic judged only **15% of files** (28 of 184), making detection **~6.5× cheaper** than LLM-reading every file. That's the point of the pre-filter: it keeps a whole-repo first pass cheap enough to be practical, and this was the previously-unmetered cost line, now measured.
 
 ## Decision — GO, with one refinement
 
-**The hybrid approach is sound enough to build.** It hit every known seam (recall 100%), did not flood (rejected the obvious noise), classified real seams accurately, and detection costs ~$0.09/repo. This clears the same bar the review cleared before Build 2.
+**The hybrid approach is sound enough to build.** It hit every known seam (recall 100%), did not flood (rejected the obvious noise), classified real seams accurately, and detection is cheap enough to run as a whole-repo first pass. This clears the same bar the review cleared before Build 2.
 
 **The one refinement to fold into Build 3** (precision, not recall): the FP class is concentrated in `components/` UI and a presentational layout — and *every real seam was in `actions/`, `app/api/`, `lib/`, or root auth/middleware*. Two cheap fixes, ideally both:
 1. **Scope candidates to server-side code** — down-weight or exclude `components/**` and presentational `layout.tsx`/`page.tsx`. Removes nearly all FPs at ~zero recall cost here.

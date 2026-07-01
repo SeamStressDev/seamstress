@@ -1,8 +1,8 @@
 # Phase 1 — Verification-tier experiment
 
-**Question:** verification (the trust gate) is the single largest COGS line in a review (Opus, ~37% / ~$0.053). Before Build 3's detector multiplies seams, can verification drop to a cheaper model **without losing accuracy or evidence rigor**?
+**Question:** verification (the trust gate) is the single largest cost line in a review (Opus, ~37% of spend). Before Build 3's detector multiplies seams, can verification drop to a cheaper model **without losing accuracy or evidence rigor**?
 
-**Method (apples-to-apples, n=1 fixture):** ran critics + synthesis **once** on the Resend critical-email fixture (`fixtures/resend-critical-email.seam.json`), producing **6 synthesized findings** across all blast-radius ranks. Then ran the **verification stage only** on those *same 6 findings*, three times — varying only `verificationModel`: Opus 4.8 (current default), Sonnet 4.6, Haiku 4.5. Critics + synthesis held fixed, so only the verifier changed. Real API, clean per-call COGS.
+**Method (apples-to-apples, n=1 fixture):** ran critics + synthesis **once** on the Resend critical-email fixture (`fixtures/resend-critical-email.seam.json`), producing **6 synthesized findings** across all blast-radius ranks. Then ran the **verification stage only** on those *same 6 findings*, three times — varying only `verificationModel`: Opus 4.8 (current default), Sonnet 4.6, Haiku 4.5. Critics + synthesis held fixed, so only the verifier changed. Real API, clean per-call cost measurement.
 
 > Caveat up front: **n=1 on one small (~30-line) fixture.** This is one good datapoint to make the call now; a durable tier policy wants a few more seams. Flagged again in the recommendation.
 
@@ -37,17 +37,15 @@ The cheaper tiers were, if anything, **more verbose** in grounding — Haiku quo
 
 ## Cost (6 verifications)
 
-| Verifier | Cost | Per finding | vs Opus |
-|---|---|---|---|
-| Opus 4.8 ($5/$25) | $0.107545 | $0.017924 | — |
-| **Sonnet 4.6 ($3/$15)** | **$0.049230** | **$0.008205** | **54% cheaper** |
-| Haiku 4.5 ($1/$5) | $0.019074 | $0.003179 | **82% cheaper** |
+Relative cost of the verification pass, critics + synthesis held fixed:
 
-(Per-finding Opus cost ~$0.018 is consistent with the earlier live review's $0.053/3.)
+| Verifier | Cost vs Opus | Verdicts vs Opus |
+|---|---|---|
+| Opus 4.8 | baseline | — |
+| **Sonnet 4.6** | **~54% cheaper** | identical on every critical/high |
+| Haiku 4.5 | ~82% cheaper | matched 4 of 6 (both criticals) |
 
-**Projected review impact** (earlier full review was ~$0.142: sonnet critics $0.038 + opus synthesis $0.051 + opus verification $0.053):
-- Verification → **Sonnet**: verification ~$0.024, review ~**$0.113**; verification drops from **37% → ~21%** of the review.
-- Verification → Haiku: verification ~$0.009, review ~**$0.099**; verification ~**9%**.
+**Projected review impact:** moving verification to **Sonnet** drops it from **~37% → ~21%** of total review spend; **Haiku** would drop it to **~9%**. The critic and synthesis stages are unchanged either way.
 
 ## Decision — drop default verification to **Sonnet 4.6**
 

@@ -9,7 +9,7 @@ binding (`src/engine/report.ts`).
 it from every scanner — is *"every finding we show as `verified_real` (with
 proof) is verified against your actual code."* That claim is enforced by this
 code. If it has an edge case — a finding rendering as verified with no real
-evidence, or evidence binding to the WRONG finding — the map shows a builder a
+evidence, or evidence binding to the WRONG finding — the map shows a user a
 **confident lie in the exact dimension that is the whole differentiator**, and it
 renders as success (silent). That's the one bug that destroys trust on first
 contact.
@@ -17,12 +17,11 @@ contact.
 **Method:** dogfooded the engine on itself — assembled the trust-gate code as a
 seam and ran the real pipeline (`npm run review`): 3 blind decorrelated critics →
 synthesis → per-finding verification, every verdict quoting the actual code.
-**COGS: $0.214** (8 calls — 3 critic + 1 synthesis + 4 verification; sonnet
-critics/verify $0.124, opus synthesis $0.090).
+**8 model calls** — 3 critic + 1 synthesis + 4 verification.
 
 ## Central question — answered
 
-> **Can a finding EVER render to a builder as `verified_real` (with proof) when
+> **Can a finding EVER render to a user as `verified_real` (with proof) when
 > verification did not establish it — OR can evidence attach to the WRONG
 > finding?**
 
@@ -100,7 +99,7 @@ finding ID; each finding stays bound to its own verdict and evidence.
 
 The trust gate **did not hold** under its own adversarial methodology — it had two
 critical confident-lie paths, exactly the class of bug worth catching before any
-builder sees the map. Both are now closed at the authority and the merge layer,
+user sees the map. Both are now closed at the authority and the merge layer,
 each pinned by a reversion-proven regression test (the bug becomes a guard).
 Re-running the trio against the fixed code, the verified-without-evidence and
 misattachment paths are gone. The remaining items are under-reporting (fail-safe)
