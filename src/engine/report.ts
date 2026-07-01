@@ -6,7 +6,7 @@
  *   "anyone logged in can change their own role to admin", never "an IDOR in the
  *   portal action" or "the synthesis surfaced…". Internal jargon is softened.
  * - Lead with the punch. An executive summary of ONLY the critical+high verified
- *   findings comes first — the 2-3 things that could get the builder owned — so a
+ *   findings comes first — the 2-3 most consequential issues — so a
  *   skimming founder sees them before a wall of lower-severity notes. The whole
  *   wedge is "judgment, not noise"; the report has to embody it.
  * - Verified issues are the headline, each backed by the exact quoted code — the
@@ -156,13 +156,13 @@ export function renderSeamMap(map: SeamMap): string {
   lines.push("");
   if (headline.length === 0) {
     lines.push(
-      "**No critical or high-severity issues found.** Nothing here can get you owned. " +
+      "**No critical or high-severity issues found.** " +
         "There's a lower-severity tail below worth a skim.",
     );
     lines.push("");
   } else {
     lines.push(
-      `**${headline.length} issue${headline.length === 1 ? "" : "s"} could get you owned** — ` +
+      `**${headline.length} issue${headline.length === 1 ? "" : "s"} of high severity or above** — ` +
         "each verified against your real code (full detail + the quoted proof below):",
     );
     lines.push("");

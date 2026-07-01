@@ -102,7 +102,7 @@ describe("renderSeamMap — executive summary leads with the punch (Fix 1)", () 
     const exec = execSummary(report);
     expect(exec).toContain(CRIT);
     expect(exec).toContain(HIGH);
-    expect(exec).toMatch(/could get you owned/i);
+    expect(exec).toMatch(/2 issues of high severity or above/i);
   });
 
   it("does NOT put the low-severity tail or judgment calls in the executive summary", () => {
