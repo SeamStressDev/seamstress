@@ -46,7 +46,7 @@ function printResult(result: ReviewResult): void {
   console.log("\n================ SYNTHESIS ================");
   console.log(result.synthesis);
 
-  console.log("\n================ COGS BY PURPOSE ================");
+  console.log("\n================ COST BY PIPELINE STAGE ================");
   for (const [purpose, usd] of Object.entries(cost.costUsdByPurpose)) {
     if (usd > 0) console.log(`  ${purpose.padEnd(14)} $${usd.toFixed(6)}`);
   }

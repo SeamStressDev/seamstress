@@ -16,8 +16,8 @@
  *   presented as fact.
  * - The coverage caveat is shown honestly when the stack is unfamiliar.
  *
- * COGS is deliberately NOT rendered here — it is an operator concern the runner
- * prints separately, so the report you hand a stranger stays clean.
+ * Cost is deliberately NOT rendered here — the runner prints a separate cost
+ * summary to stderr, so the report you hand someone stays clean.
  */
 
 import { effectiveStatus } from "../types/index.js";
@@ -439,17 +439,16 @@ export function renderSeamMapHtml(map: SeamMap): string {
   return lines.join("\n");
 }
 
-/** Operator-only COGS footnote (printed by the runner, never in the builder file). */
-export function renderOperatorFootnote(map: SeamMap): string {
+/** Cost summary — printed to stderr by the runner, never written into the report file. */
+export function renderCostSummary(map: SeamMap): string {
   const c = map.totalCost;
   const models = Object.entries(c.costUsdByModel)
     .map(([m, usd]) => `${m} $${usd.toFixed(4)}`)
     .join(", ");
   return (
-    `operator footnote (not builder-facing):\n` +
-    `  mapping cost $${c.totalCostUsd.toFixed(4)} = detection $${map.detectionCost.totalCostUsd.toFixed(4)} + ` +
-    `review $${map.reviewCost.totalCostUsd.toFixed(4)}\n` +
-    `  ${c.totalInputTokens} in / ${c.totalOutputTokens} out tokens\n` +
-    `  models: ${models}`
+    `Run cost (billed to your Anthropic key): $${c.totalCostUsd.toFixed(4)} — ` +
+    `detection $${map.detectionCost.totalCostUsd.toFixed(4)} + review $${map.reviewCost.totalCostUsd.toFixed(4)}\n` +
+    `  ${c.totalInputTokens} input / ${c.totalOutputTokens} output tokens\n` +
+    `  by model: ${models}`
   );
 }

@@ -2,9 +2,9 @@
  * The free seam-map runner — the validation instrument.
  *
  * Point it at a repo: it detects the seams, reviews them, and prints a readable
- * risk map a real builder can act on. Optionally writes the builder-facing
- * report to a .md file (clean — no operator COGS). The operator COGS footnote is
- * printed to the terminal only.
+ * risk map you can act on. Optionally writes the report to a .md file (clean —
+ * no cost lines). The run-cost summary goes to stderr, never into the report
+ * file.
  *
  * Usage (needs a real key in .env):
  *   npm run map -- /path/to/repo
@@ -13,7 +13,7 @@
  */
 
 import { writeFileSync } from "node:fs";
-import { mapSeams, renderSeamMap, renderSeamMapHtml, renderOperatorFootnote } from "./engine/index.js";
+import { mapSeams, renderSeamMap, renderSeamMapHtml, renderCostSummary } from "./engine/index.js";
 import { loadEnvFile } from "./env.js";
 import { LlmClient } from "./llm/index.js";
 
@@ -56,8 +56,8 @@ async function main(): Promise<void> {
     console.error(`HTML report written to ${htmlOut}`);
   }
 
-  // Operator-only — never part of the builder-facing report/file.
-  console.error("\n" + renderOperatorFootnote(map));
+  // Cost summary goes to stderr, never into the report file.
+  console.error("\n" + renderCostSummary(map));
 }
 
 main().catch((err: unknown) => {

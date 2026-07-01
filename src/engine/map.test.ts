@@ -15,7 +15,7 @@ import type { ModelCaller } from "./config.js";
 import { mapWithConcurrency } from "./concurrency.js";
 import { assessCoverage, mapSeams } from "./map.js";
 import type { SeamMap } from "./map.js";
-import { renderSeamMap } from "./report.js";
+import { renderCostSummary, renderSeamMap } from "./report.js";
 import type { BlastRadiusRank, Cost, Finding, Seam, SeamKind, VerificationResult } from "../types/index.js";
 
 const ZERO_COST: Cost = {
@@ -352,5 +352,37 @@ describe("renderSeamMap — consequence is bound to the finding, not the seam ki
     const r = renderSeamMap(mapFrom([{ desc: "some finding", blast: "critical", verified: true }], "auth"));
     expect(r).not.toContain("**If this is wrong:**");
     expect(r).not.toMatch(/the wrong person can get in/i); // the old auth-kind generic
+  });
+});
+
+describe("renderCostSummary — neutral, single-audience cost line", () => {
+  const cost = (usd: number): Cost => ({ ...ZERO_COST, totalCostUsd: usd });
+  const map: SeamMap = {
+    ...mapFrom([{ desc: "x", blast: "critical", verified: true }]),
+    detectionCost: cost(0.0456),
+    reviewCost: cost(0.0778),
+    totalCost: {
+      ...cost(0.1234),
+      totalInputTokens: 152340,
+      totalOutputTokens: 8912,
+      costUsdByModel: { "claude-haiku-4-5": 0.0112 },
+    },
+  };
+  const summary = renderCostSummary(map);
+
+  it("keeps the useful data: total, detection/review split, tokens, per-model dollars", () => {
+    expect(summary).toContain("$0.1234");
+    expect(summary).toContain("detection $0.0456");
+    expect(summary).toContain("review $0.0778");
+    expect(summary).toContain("152340 input / 8912 output tokens");
+    expect(summary).toContain("claude-haiku-4-5 $0.0112");
+  });
+
+  it("says whose money it is and carries no internal two-sided framing", () => {
+    expect(summary).toContain("billed to your Anthropic key");
+    const lower = summary.toLowerCase();
+    expect(lower).not.toContain("operator");
+    expect(lower).not.toContain("builder");
+    expect(lower).not.toContain("cogs");
   });
 });

@@ -59,7 +59,7 @@ async function main(): Promise<void> {
     for (const j of result.errors) console.log(`  ${j.path} — ${j.error}`);
   }
 
-  console.log("\n================ DETECTION COGS ================");
+  console.log("\n================ DETECTION COST ================");
   console.log(
     `  $${result.cost.totalCostUsd.toFixed(6)} ` +
       `(${result.cost.totalInputTokens} in / ${result.cost.totalOutputTokens} out, ` +
