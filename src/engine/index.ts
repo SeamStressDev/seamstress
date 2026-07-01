@@ -18,7 +18,7 @@ export type {
   CoverageSignal,
   ErroredSeam,
 } from "./map.js";
-export { renderSeamMap, renderOperatorFootnote } from "./report.js";
+export { renderSeamMap, renderSeamMapHtml, renderOperatorFootnote } from "./report.js";
 export { mapWithConcurrency, DEFAULT_REVIEW_CONCURRENCY } from "./concurrency.js";
 export { sourceFileStats } from "./heuristic.js";
 

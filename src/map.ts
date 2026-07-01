@@ -13,7 +13,7 @@
  */
 
 import { writeFileSync } from "node:fs";
-import { mapSeams, renderSeamMap, renderOperatorFootnote } from "./engine/index.js";
+import { mapSeams, renderSeamMap, renderSeamMapHtml, renderOperatorFootnote } from "./engine/index.js";
 import { LlmClient } from "./llm/index.js";
 
 function loadEnvFile(): void {
@@ -34,11 +34,12 @@ async function main(): Promise<void> {
 
   const repoPath = process.argv[2];
   if (!repoPath || repoPath.startsWith("--")) {
-    console.error("Usage: npm run map -- <repo-path> [--out report.md] [--max N]");
+    console.error("Usage: npm run map -- <repo-path> [--out report.md] [--html report.html] [--max N]");
     process.exitCode = 1;
     return;
   }
   const out = flagValue("--out");
+  const htmlOut = flagValue("--html");
   const maxRaw = flagValue("--max");
   const maxCandidates = maxRaw !== undefined ? Number(maxRaw) : undefined;
 
@@ -55,6 +56,11 @@ async function main(): Promise<void> {
   if (out) {
     writeFileSync(out, report + "\n");
     console.error(`\nReport written to ${out}`);
+  }
+
+  if (htmlOut) {
+    writeFileSync(htmlOut, renderSeamMapHtml(map) + "\n");
+    console.error(`HTML report written to ${htmlOut}`);
   }
 
   // Operator-only — never part of the builder-facing report/file.
