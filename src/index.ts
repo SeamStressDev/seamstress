@@ -9,17 +9,8 @@
  *   npm run smoke
  */
 
+import { loadEnvFile } from "./env.js";
 import { DEFAULT_SMOKE_MODEL, LlmClient } from "./llm/index.js";
-
-/** Load `.env` if present; otherwise rely on the ambient environment. */
-function loadEnvFile(): void {
-  try {
-    // Node >=20.6 ships process.loadEnvFile(); no dotenv dependency needed.
-    process.loadEnvFile();
-  } catch {
-    // No .env file — fine, the key may already be in the environment.
-  }
-}
 
 async function main(): Promise<void> {
   loadEnvFile();

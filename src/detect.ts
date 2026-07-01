@@ -9,15 +9,8 @@
  */
 
 import { detectSeams } from "./engine/index.js";
+import { loadEnvFile } from "./env.js";
 import { LlmClient } from "./llm/index.js";
-
-function loadEnvFile(): void {
-  try {
-    process.loadEnvFile();
-  } catch {
-    // No .env — rely on ambient environment.
-  }
-}
 
 async function main(): Promise<void> {
   loadEnvFile();

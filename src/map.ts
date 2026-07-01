@@ -14,15 +14,8 @@
 
 import { writeFileSync } from "node:fs";
 import { mapSeams, renderSeamMap, renderSeamMapHtml, renderOperatorFootnote } from "./engine/index.js";
+import { loadEnvFile } from "./env.js";
 import { LlmClient } from "./llm/index.js";
-
-function loadEnvFile(): void {
-  try {
-    process.loadEnvFile();
-  } catch {
-    // No .env — rely on ambient environment.
-  }
-}
 
 function flagValue(flag: string): string | undefined {
   const i = process.argv.indexOf(flag);

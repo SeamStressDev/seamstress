@@ -12,20 +12,12 @@
 
 import { readFileSync } from "node:fs";
 import { reviewSeam } from "./engine/index.js";
+import { loadEnvFile } from "./env.js";
 import { LlmClient } from "./llm/index.js";
 import { effectiveStatus, SeamSchema } from "./types/index.js";
 import type { ReviewResult } from "./types/index.js";
 
 const DEFAULT_FIXTURE = "fixtures/resend-critical-email.seam.json";
-
-/** Load `.env` if present; otherwise rely on the ambient environment. */
-function loadEnvFile(): void {
-  try {
-    process.loadEnvFile();
-  } catch {
-    // No .env file — fine, the key may already be in the environment.
-  }
-}
 
 function printResult(result: ReviewResult): void {
   const { findings, verifications, cost } = result;

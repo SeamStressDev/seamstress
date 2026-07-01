@@ -8,7 +8,7 @@ It's early, bring-your-own-key, and validated on a small number of repos. This R
 
 ## Quickstart
 
-**Prerequisites:** Node 20.6+ and an [Anthropic API key](https://console.anthropic.com/).
+**Prerequisites:** Node 22+ and an [Anthropic API key](https://console.anthropic.com/).
 
 ```bash
 git clone https://github.com/SeamStressDev/seamstress
@@ -32,7 +32,7 @@ npm run map -- /path/to/your/repo --html report.html   # standalone HTML report
 npm run map -- /path/to/your/repo --max 40             # cap how many candidates are reviewed
 ```
 
-No build step is needed — the run scripts execute the TypeScript directly (`npm install` must include dev dependencies, i.e. don't use `--omit=dev`).
+No build step is needed — the run scripts execute the TypeScript directly.
 
 **Cost:** it's your key. SeamStress makes real Anthropic API calls — a few per seam — so a run spends real usage on your account. The `--max` flag caps how much it reviews.
 
