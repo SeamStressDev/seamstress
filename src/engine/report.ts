@@ -288,7 +288,7 @@ export function renderSeamMapHtml(map: SeamMap): string {
       : `SeamStress reviewed ${map.seams.length} high-risk seam${map.seams.length === 1 ? "" : "s"} and verified ` +
         `${verified.length} issue${verified.length === 1 ? "" : "s"} against your real code` +
         (counts.critical + counts.high > 0
-          ? `, including ${counts.critical + counts.high} that could get you owned. The most consequential is below, with the exact lines quoted as proof.`
+          ? `, including ${counts.critical + counts.high} high-severity or above. The most consequential is below, with the exact lines quoted as proof.`
           : ". The details are below, each with the exact lines quoted as proof.");
 
   const styles = `
@@ -402,7 +402,7 @@ export function renderSeamMapHtml(map: SeamMap): string {
     lines.push(`<span class="tag">money-path · ${escapeHtml(KIND_LABEL[kind])}</span>`);
     lines.push('<span class="verified">✓ verified against source</span>');
     lines.push("</div>");
-    lines.push(`<h2>${escapeHtml(softenJargon(headline.description))}</h2>`);
+    lines.push(`<h2>${escapeHtml(headline.description)}</h2>`);
     if (quote) {
       lines.push('<div class="trace">');
       lines.push(`<div class="path">${escapeHtml(traceWhere)}</div>`);
@@ -411,10 +411,10 @@ export function renderSeamMapHtml(map: SeamMap): string {
     }
     if (headline.consequence) {
       lines.push('<div class="label">If this is wrong</div>');
-      lines.push(`<p class="consequence">${escapeHtml(softenJargon(headline.consequence))}</p>`);
+      lines.push(`<p class="consequence">${escapeHtml(headline.consequence)}</p>`);
     }
     lines.push('<div class="label">Why a scanner misses it</div>');
-    lines.push(`<p class="why">${escapeHtml(softenJargon(headline.reasoning))}</p>`);
+    lines.push(`<p class="why">${escapeHtml(headline.reasoning)}</p>`);
     lines.push("</div>");
   }
 
@@ -425,7 +425,7 @@ export function renderSeamMapHtml(map: SeamMap): string {
     for (const f of rest) {
       lines.push('<div class="row">');
       lines.push(`<span class="sev ${f.blastRadius}">${SEVERITY_WORD[f.blastRadius]}</span>`);
-      lines.push(`<span class="d">${escapeHtml(softenJargon(f.description))}</span>`);
+      lines.push(`<span class="d">${escapeHtml(f.description)}</span>`);
       lines.push(`<span class="f">${escapeHtml(findingWhere(map, f))}</span>`);
       lines.push("</div>");
     }
