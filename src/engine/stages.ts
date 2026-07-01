@@ -190,7 +190,7 @@ export async function runVerification(
   // Programmatic reachability gate: down-scope a verified_real verdict whose
   // external-reachability claim ("any importing module can overwrite X") names a
   // symbol that isn't actually exported. The model already failed at exactly
-  // this judgment (Cluckcoach #2), so we check the source, not the prose.
+  // this judgment in a real-world audit, so we check the source, not the prose.
   const result = gateReachabilityClaim(finding, {
     findingId: finding.id,
     status: parsed.status,

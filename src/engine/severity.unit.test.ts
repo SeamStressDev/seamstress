@@ -8,8 +8,8 @@ import { describe, expect, it } from "vitest";
 import { calibrateSeverity } from "./severity.js";
 import type { SeverityInput } from "./severity.js";
 
-// LATENT — real nexus #2 shape: "structurally permits", "no … check constraint",
-// and the reasoning explicitly says NO code path constructs the row.
+// LATENT — real latent-schema-constraint shape: "structurally permits", "no …
+// check constraint", and the reasoning explicitly says NO code path constructs the row.
 const LATENT: SeverityInput = {
   blastRadius: "critical",
   description:
@@ -18,8 +18,8 @@ const LATENT: SeverityInput = {
     "Nothing in the schema prevents the combination. No code path is shown that actually constructs such a row — latent/architectural, not a demonstrated exploit.",
 };
 
-// REACHABLE — real nexus #12 shape: contains "nothing prevents" (latent-sounding)
-// BUT cites a concrete trigger ("two concurrent uploads", "deferred confirm").
+// REACHABLE — real deferred-quota TOCTOU shape: contains "nothing prevents"
+// (latent-sounding) BUT cites a concrete trigger ("two concurrent uploads", "deferred confirm").
 const REACHABLE_WITH_LATENT_WORDS: SeverityInput = {
   blastRadius: "high",
   description:

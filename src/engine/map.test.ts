@@ -326,7 +326,7 @@ describe("renderSeamMap — builder-facing report", () => {
 });
 
 describe("renderSeamMap — consequence is bound to the finding, not the seam kind", () => {
-  // The Kovasite #8 shape: an isolation finding that lives on a money_path seam.
+  // The kind-mismatch shape: an isolation finding that lives on a money_path seam.
   // Its consequence must read as isolation/access — NOT the kind-derived
   // "money can move the wrong way" that the old kind-keyed lookup produced.
   const ISOLATION_CONSEQUENCE =

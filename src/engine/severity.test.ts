@@ -5,8 +5,10 @@
  * signal for whether the bad outcome is currently reachable. So a true-but-
  * LATENT architectural concern ("structurally permits…", "no … constraint")
  * with large hypothetical impact rates `critical` identically to an immediately-
- * triggerable exploit. Four real cases shipped this way (Kovasite #6, Cluckcoach
- * #2, nexus #2, nexus #15) and had to be hand-rejected at curation.
+ * triggerable exploit. Four real cases shipped this way — a service-role client
+ * with no structural import guard, a mutable exported config object, a schema that
+ * structurally permits a privileged row, and a fixed-key webhook upsert — and had
+ * to be hand-rejected at curation.
  *
  * Pinned through the existing `rankAndIdentify` (the post-synthesis pipeline
  * seam that finalizes findings) so failure is BEHAVIORAL, not a wiring error.
@@ -18,8 +20,9 @@ import { describe, expect, it } from "vitest";
 import { rankAndIdentify } from "./pipeline.js";
 import type { FindingDraft } from "./parse.js";
 
-// LATENT — the real nexus #2 shape. Large hypothetical impact (paid access with
-// no live subscription), but NO demonstrated code path that creates the bad row.
+// LATENT — the real latent-schema-constraint shape. Large hypothetical impact
+// (paid access with no live subscription), but NO demonstrated code path that
+// creates the bad row.
 const LATENT_DRAFT: FindingDraft = {
   description:
     "The schema structurally permits a row holding status='active' and planTier='enterprise' with stripeSubscriptionId=NULL and currentPeriodEnd=NULL simultaneously, because each field is independently nullable/defaulted with no cross-column check constraint.",
@@ -28,8 +31,8 @@ const LATENT_DRAFT: FindingDraft = {
   blastRadius: "critical",
 };
 
-// REACHABLE — the real nexus #12 shape. A concrete path that fires in ordinary
-// use (two concurrent uploads, or a deferred confirm) produces the harm.
+// REACHABLE — the real deferred-quota TOCTOU shape. A concrete path that fires in
+// ordinary use (two concurrent uploads, or a deferred confirm) produces the harm.
 const REACHABLE_DRAFT: FindingDraft = {
   description:
     "Storage quota is a read-only check at upload-initiate, while the usage increment happens later at confirm-time with no quota gate, reservation, or lock — so two concurrent uploads both pass the check, or a deferred confirm runs after the account fills, and the user exceeds their plan limit.",

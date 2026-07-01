@@ -5,8 +5,10 @@
  * signal for whether the bad outcome is currently REACHABLE. So a true-but-
  * LATENT architectural concern ("structurally permits…", "nothing prevents…",
  * "no … constraint") with large hypothetical impact rates `critical` identically
- * to an immediately-triggerable exploit. Four real cases shipped this way
- * (Kovasite #6, Cluckcoach #2, nexus #2, nexus #15) and had to be hand-rejected.
+ * to an immediately-triggerable exploit. Four real cases shipped this way — a
+ * service-role client with no structural import guard, a mutable exported config
+ * object, a schema that structurally permits a privileged row, and a fixed-key
+ * webhook upsert — and had to be hand-rejected.
  *
  * This is a PROGRAMMATIC enforcement (the model under-discounts exactly this even
  * when instructed — the reachability-gate precedent): a finding rated

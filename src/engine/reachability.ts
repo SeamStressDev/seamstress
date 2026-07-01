@@ -4,8 +4,8 @@
  * A verification verdict that asserts EXTERNAL reachability of a symbol — "any
  * importing module can overwrite X", "external code can call X", "an attacker
  * can reach X" — has a precondition the model routinely fails to check: X must
- * actually be reachable from outside its module, i.e. EXPORTED. In the Cluckcoach
- * #2 case the verifier quoted the very line that disproves the claim
+ * actually be reachable from outside its module, i.e. EXPORTED. In one real-world
+ * audit case the verifier quoted the very line that disproves the claim
  * (`const RANK` — no export) and still shipped it as a confident Critical.
  *
  * This is a PROGRAMMATIC check, not a stronger prompt — the model already failed

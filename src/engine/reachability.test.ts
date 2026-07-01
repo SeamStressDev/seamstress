@@ -1,5 +1,5 @@
 /**
- * Reachability-claim gate — pins the Cluckcoach #2 defect.
+ * Reachability-claim gate — pins the mutable-exported-config defect.
  *
  * A verification verdict that asserts EXTERNAL reachability of a symbol ("any
  * importing module can overwrite X") must be confirmed against the source: X has

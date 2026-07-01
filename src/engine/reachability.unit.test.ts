@@ -59,8 +59,8 @@ describe("gateReachabilityClaim (pure)", () => {
     expect(out.status).toBe("verified_real");
   });
 
-  it("down-scopes a multi-symbol claim, naming ONLY the unexported symbol (the real #2 shape)", () => {
-    // The actual Cluckcoach #2: one claim names BOTH symbols — RANK (not
+  it("down-scopes a multi-symbol claim, naming ONLY the unexported symbol (the real multi-symbol shape)", () => {
+    // The real multi-symbol case: one claim names BOTH symbols — RANK (not
     // exported) and FEATURE_MIN_PLAN (exported). It must down-scope (RANK fails),
     // and the note must finger RANK only, not mislabel FEATURE_MIN_PLAN.
     const finding = {
