@@ -1,0 +1,8 @@
+{
+  "id": "001-cosmetic-key-isolation",
+  "title": "Cosmetic key isolation on a critical-alert email path",
+  "seam_kind": "safety_delivery",
+  "difficulty": 3,
+  "source": "own-code-derived (clean-room)",
+  "status": "draft"
+}

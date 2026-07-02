@@ -1,0 +1,49 @@
+{
+  "must_find": [
+    {
+      "id": "shared-quota-cosmetic-isolation",
+      "description": "The dedicated critical key shares the provider account's per-account send quota with the bulk key, so the isolation is cosmetic — bulk load consumes the same quota the critical send depends on.",
+      "match": {
+        "all_of": [
+          ["quota", "rate.?limit", "429", "account limit", "sending limit", "throttl", "too many requests"],
+          ["shared", "same account", "same provider", "one account", "single account", "per-account", "account-wide", "acct_7fb2"],
+          ["critical", "dedicat", "isolat", "alert"]
+        ]
+      }
+    },
+    {
+      "id": "silent-critical-delivery-failure",
+      "description": "Under bulk load the critical alert can silently fail to deliver: the mailer swallows the 429 as { sent: false } and the critical path only logs it. Severity reflects safety-delivery impact.",
+      "match": {
+        "seam_kind": "safety_delivery",
+        "blast_radius_min": "high",
+        "all_of": [
+          ["silent", "silently", "swallow", "not delivered", "undelivered", "dropped", "fail", "lost", "does not reach", "won'?t reach", "starv"],
+          ["critical alert", "critical (email|send|notification|message)", "critical.?alert", "security alert", "safety"]
+        ]
+      }
+    }
+  ],
+  "must_not_claim": [
+    {
+      "id": "key-split-is-a-defect",
+      "description": "Introducing the dedicated key is directionally sensible; the flaw is incompleteness, not the key split. A review must not claim the split itself is a defect/regression to revert.",
+      "match": {
+        "all_of": [
+          ["dedicated key", "separate key", "separate .{0,15}key", "second key", "critical key", "key split", "splitting .{0,15}key", "two keys", "distinct key"],
+          ["regression", "unnecessary", "should(?: not|n'?t) have", "shouldn'?t have", "revert", "remove .{0,20}key", "anti-pattern", "no need", "pointless", "redundant"]
+        ]
+      }
+    },
+    {
+      "id": "key-hardcoded-or-leaked",
+      "description": "The keys load from env correctly. A review must not claim a key is hardcoded, committed, or leaked.",
+      "match": {
+        "all_of": [
+          ["hardcod", "hard-cod", "\\bleak", "plaintext", "committed to (?:source|the repo|git)", "checked in", "in (?:the )?source code"],
+          ["key", "secret", "credential", "api.?key", "token"]
+        ]
+      }
+    }
+  ]
+}
