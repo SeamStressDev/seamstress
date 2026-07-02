@@ -81,3 +81,21 @@ describe("scoreEntry — entry 001 cosmetic key isolation", () => {
     expect(r.summary).toContain("FAIL");
   });
 });
+
+describe("scoreEntry — ground-truth validation", () => {
+  it("rejects an all_of containing an empty group, naming the offending item", () => {
+    const bad: GroundTruth = {
+      must_find: [
+        { id: "degenerate", description: "d", match: { all_of: [["quota"], []] } },
+      ],
+      must_not_claim: [],
+    };
+    expect(() => scoreEntry(ENTRY, load("empty.json"), bad)).toThrow(/degenerate.*empty all_of group/);
+  });
+
+  it("accepts entry 001's real ground truth (over-rejection can't masquerade as success)", () => {
+    // The real ground truth must still validate and score without throwing.
+    const r = scoreEntry(ENTRY, load("both-must-find.json"), groundTruth);
+    expect(r.passed).toBe(true);
+  });
+});

@@ -1,0 +1,10 @@
+{
+  "//": "Type-checks the benchmark scorer under `npm run typecheck`. Separate from the root config because the root sets rootDir: ./src, which forbids adding out-of-src files there. Scoped to scoring/ — entry fixtures are code under review, not ours to type-check.",
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "rootDir": ".."
+  },
+  "include": ["scoring/**/*.ts"],
+  "exclude": ["scoring/**/*.test.ts"]
+}

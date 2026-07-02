@@ -112,6 +112,12 @@ function validateItem(item: GroundTruthItem): void {
   }
   if (item.match.file !== undefined) compileOrThrow(item.match.file, item.id);
   for (const group of item.match.all_of ?? []) {
+    if (group.length === 0) {
+      throw new Error(
+        `ground-truth item "${item.id}" has an empty all_of group — a group with no ` +
+          `alternatives can never match; remove it or add patterns`,
+      );
+    }
     for (const rx of group) compileOrThrow(rx, item.id);
   }
 }
