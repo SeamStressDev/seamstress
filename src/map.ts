@@ -32,7 +32,7 @@
 
 import { writeFileSync } from "node:fs";
 import { reportFatal, requireRepoDir } from "./cli.js";
-import { mapSeams, renderSeamMap, renderSeamMapHtml, renderCostSummary } from "./engine/index.js";
+import { mapSeams, renderSeamMap, renderSeamMapHtml, renderCostSummary, projectSeamMap } from "./engine/index.js";
 import { loadEnvFile } from "./env.js";
 import { LlmClient } from "./llm/index.js";
 
@@ -46,13 +46,14 @@ async function main(): Promise<void> {
 
   const repoPath = process.argv[2];
   if (!repoPath || repoPath.startsWith("--")) {
-    console.error("Usage: npm run map -- <repo-path> [--out report.md] [--html report.html] [--max N]");
+    console.error("Usage: npm run map -- <repo-path> [--out report.md] [--html report.html] [--json projection.json] [--max N]");
     process.exitCode = 1;
     return;
   }
   requireRepoDir(repoPath);
   const out = flagValue("--out");
   const htmlOut = flagValue("--html");
+  const jsonOut = flagValue("--json");
   const maxRaw = flagValue("--max");
   const maxCandidates = maxRaw !== undefined ? Number(maxRaw) : undefined;
 
@@ -74,6 +75,11 @@ async function main(): Promise<void> {
   if (htmlOut) {
     writeFileSync(htmlOut, renderSeamMapHtml(map) + "\n");
     console.error(`HTML report written to ${htmlOut}`);
+  }
+
+  if (jsonOut) {
+    writeFileSync(jsonOut, JSON.stringify(projectSeamMap(map), null, 2) + "\n");
+    console.error(`Findings projection written to ${jsonOut}`);
   }
 
   // Cost summary goes to stderr, never into the report file.
