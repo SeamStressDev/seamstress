@@ -126,3 +126,8 @@ These are demonstrations on code we can show fully. SeamStress reasons about
 the code in front of it, not intent documented elsewhere; it's young and
 validated on a small number of repos. Treat findings as "worth checking," not
 gospel.
+
+---
+
+Shipping something with money/auth/tenant seams? I do fixed-scope pre-launch
+seam reviews — hello@seamstress.dev.

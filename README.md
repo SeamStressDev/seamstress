@@ -68,6 +68,23 @@ The load-bearing principle is the verification gate: **a finding is only shown a
 - Detection is **best-tuned for JavaScript/TypeScript (Next.js) and Python (Django)**. On other stacks it still runs, but the report says so and treats itself as a floor on the risk, not a complete inventory — the heuristic can miss seams whose signals it doesn't recognize.
 - It's **young** and validated on a small number of repos. It finds real bugs, but it is not a substitute for a security audit.
 
+## Pre-launch seam review
+
+If you're shipping an AI-assisted product that touches money, auth, or
+multi-tenant data, I offer a fixed-scope pre-launch seam review — the
+methodology in this repo, plus the judgment it can't automate. I build with
+AI assistance myself; SeamStress exists because I wanted review discipline
+that matches that speed.
+
+The deliverable is the questions your code raises at its riskiest boundaries:
+what the money, auth, and tenant seams actually permit as written — each
+observation verified against your source with the lines quoted, so you decide
+what's a defect and what's intended. It's a focused seam review, not a full
+security audit, and not a promised bug count.
+
+The engagement is fixed-scope — to start a conversation, email
+hello@seamstress.dev.
+
 ## License
 
 Copyright (C) 2026 SeamStress contributors.
