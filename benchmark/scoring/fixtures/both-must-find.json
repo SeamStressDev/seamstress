@@ -1,0 +1,32 @@
+{
+  "seams": [{ "id": "s1", "kind": "safety_delivery" }],
+  "findings": [
+    {
+      "id": "f1",
+      "seamId": "s1",
+      "description": "Cosmetic isolation: the dedicated critical-alert key shares the same provider account (acct_7fb2) as the bulk key.",
+      "blastRadius": "high",
+      "reasoning": "Both keys are provisioned under one account, so they share that account's per-account send quota; splitting keys does not give the critical path an independent rate limit."
+    },
+    {
+      "id": "f2",
+      "seamId": "s1",
+      "description": "The critical alert can silently fail to deliver under bulk load.",
+      "blastRadius": "critical",
+      "reasoning": "When the account is over its limit the provider returns 429, the mailer swallows it as { sent: false }, and sendCriticalAlert only logs — so a critical security alert is lost with no retry or escalation."
+    }
+  ],
+  "verifications": [
+    {
+      "findingId": "f2",
+      "status": "verified_real",
+      "evidence": [
+        {
+          "quotedCode": "if (!result.sent) { console.warn(`[alert] critical alert to ${to} was not delivered`); }",
+          "location": { "path": "notifications.ts", "startLine": 20 }
+        }
+      ],
+      "note": "Confirmed against the fixture: the 429 is swallowed and the critical send only logs."
+    }
+  ]
+}

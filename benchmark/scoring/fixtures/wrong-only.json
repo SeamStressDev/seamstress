@@ -1,0 +1,13 @@
+{
+  "seams": [{ "id": "s1", "kind": "safety_delivery" }],
+  "findings": [
+    {
+      "id": "f1",
+      "seamId": "s1",
+      "description": "Using a separate critical API key is unnecessary and should be reverted.",
+      "blastRadius": "low",
+      "reasoning": "The extra key adds configuration complexity for no benefit; the previous single-key setup was fine."
+    }
+  ],
+  "verifications": []
+}

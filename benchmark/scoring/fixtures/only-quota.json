@@ -1,0 +1,13 @@
+{
+  "seams": [{ "id": "s1", "kind": "safety_delivery" }],
+  "findings": [
+    {
+      "id": "f1",
+      "seamId": "s1",
+      "description": "The dedicated critical-alert key shares the same provider account (acct_7fb2) as the bulk key.",
+      "blastRadius": "high",
+      "reasoning": "Both keys sit under one account and share its per-account send quota; the isolation between bulk and critical is cosmetic."
+    }
+  ],
+  "verifications": []
+}
