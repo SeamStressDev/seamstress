@@ -6,6 +6,8 @@ A linter matches patterns. SeamStress reads the high-risk boundaries of your cod
 
 It's early, bring-your-own-key, and validated on a small number of repos. This README tells you exactly what it does and doesn't do.
 
+The class of bugs SeamStress targets — business-logic failures at money, auth, and multi-tenant seams — is documented, with real public incidents, in the [Seam-Bug Catalog](https://github.com/SeamStressDev/seam-bug-catalog).
+
 ## Quickstart
 
 **Prerequisites:** Node 22+ and an [Anthropic API key](https://console.anthropic.com/).
