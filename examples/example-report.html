@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Seam Risk Map — tiny-app</title>
+<style>:root { color-scheme: light dark; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #0d1117; color: #e6edf3;
+      font: 15px/1.6 ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace; }
+    .wrap { max-width: 820px; margin: 0 auto; padding: 40px 24px 64px; }
+    .chrome { display: flex; align-items: baseline; justify-content: space-between;
+      border-bottom: 1px solid #21262d; padding-bottom: 14px; }
+    .mark { font-weight: 700; letter-spacing: .5px; color: #e6edf3; }
+    .mark .dot { color: #58a6ff; }
+    .repo { color: #7d8590; font-size: 13px; }
+    .metrics { display: flex; flex-wrap: wrap; gap: 22px; margin: 22px 0 8px; }
+    .metric .n { font-size: 26px; font-weight: 700; color: #e6edf3; }
+    .metric .l { font-size: 12px; color: #7d8590; text-transform: uppercase; letter-spacing: .6px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 20px; }
+    .chip { font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid #30363d; color: #adbac7; }
+    .chip.critical { border-color: #f8514933; background: #f851491a; color: #ff7b72; }
+    .chip.high { border-color: #db6d2833; background: #db6d281a; color: #ffa657; }
+    .chip.medium { border-color: #d2992233; background: #d299221a; color: #e3b341; }
+    .chip.low { color: #7d8590; }
+    .chip.errored { border-color: #30363d; color: #7d8590; }
+    .verdict { color: #adbac7; margin: 0 0 30px; }
+    .card { border: 1px solid #30363d; border-radius: 8px; padding: 20px 22px; background: #161b22; }
+    .card .top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+    .badge { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+      padding: 3px 9px; border-radius: 4px; }
+    .badge.critical { background: #f85149; color: #0d1117; }
+    .badge.high { background: #ffa657; color: #0d1117; }
+    .badge.medium { background: #e3b341; color: #0d1117; }
+    .badge.low { background: #484f58; color: #e6edf3; }
+    .tag { font-size: 12px; color: #7d8590; }
+    .verified { font-size: 12px; color: #3fb950; margin-left: auto; }
+    .card h2 { font-size: 17px; line-height: 1.4; margin: 0 0 14px; color: #e6edf3; font-weight: 600; }
+    .trace { margin: 0 0 16px; }
+    .trace .path { font-size: 12px; color: #7d8590; margin-bottom: 6px; }
+    pre { margin: 0; padding: 14px 16px; background: #0d1117; border: 1px solid #21262d; border-radius: 6px;
+      overflow-x: auto; font-size: 13px; color: #e6edf3; }
+    .label { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: #7d8590; margin: 16px 0 4px; }
+    .consequence { color: #e6edf3; margin: 0 0 4px; }
+    .why { border-left: 2px solid #30363d; padding-left: 14px; color: #adbac7; margin-top: 4px; }
+    .collapsed { margin-top: 28px; }
+    .collapsed h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: #7d8590; margin: 0 0 10px; }
+    .row { display: flex; gap: 10px; align-items: baseline; padding: 8px 0; border-top: 1px solid #21262d; }
+    .row .sev { font-size: 11px; font-weight: 700; text-transform: uppercase; min-width: 62px; }
+    .row .sev.critical { color: #ff7b72; } .row .sev.high { color: #ffa657; }
+    .row .sev.medium { color: #e3b341; } .row .sev.low { color: #7d8590; }
+    .row .d { flex: 1; color: #adbac7; }
+    .row .f { color: #6e7681; font-size: 12px; }
+    .caveat { border: 1px solid #d2992233; background: #d299220f; border-radius: 6px;
+      padding: 12px 14px; color: #e3b341; font-size: 13px; margin: 0 0 24px; }
+    footer { margin-top: 48px; padding-top: 16px; border-top: 1px solid #21262d;
+      color: #6e7681; font-size: 12px; text-align: center; }
+    footer a { color: #7d8590; text-decoration: none; }</style>
+</head><body><div class="wrap">
+<div class="chrome">
+<span class="mark">SEAM<span class="dot">·</span>STRESS</span>
+<span class="repo">tiny-app</span>
+</div>
+<div class="metrics">
+<div class="metric"><div class="n">4</div><div class="l">files scanned</div></div>
+<div class="metric"><div class="n">2</div><div class="l">seams</div></div>
+<div class="metric"><div class="n" data-verified-total="3">3</div><div class="l">verified issues</div></div>
+<div class="metric"><div class="n">1</div><div class="l">headline</div></div>
+</div>
+<div class="chips">
+<span class="chip critical" data-count-critical="2">2 critical</span>
+<span class="chip high" data-count-high="0">0 high</span>
+<span class="chip medium" data-count-medium="0">0 medium</span>
+<span class="chip low" data-count-low="1">1 low</span>
+</div>
+<p class="verdict">SeamStress reviewed 2 high-risk seams and verified 3 issues against your real code, including 2 high-severity or above. The most consequential is below, with the exact lines quoted as proof.</p>
+<div class="card" data-headline-card>
+<div class="top">
+<span class="badge critical">Critical</span>
+<span class="tag">Login &amp; access control</span>
+<span class="verified">✓ verified against source</span>
+</div>
+<h2>Session token is forgeable — base64(userId:timestamp) with no secret or randomness</h2>
+<div class="trace">
+<div class="path">src/login.ts:8</div>
+<pre>const token = Buffer.from(`${user.id}:${Date.now()}`).toString(&quot;base64&quot;);</pre>
+</div>
+<div class="label">If this is wrong</div>
+<p class="consequence">An attacker can log in as any user, including admins, without knowing any password by manufacturing a token from a guessed user ID and timestamp.</p>
+<div class="label">Why a scanner misses it</div>
+<p class="why">Line 8 builds the token as `Buffer.from(`${user.id}:${Date.now()}`).toString(&#39;base64&#39;)`. Base64 is reversible, both inputs are low-entropy, and there is no HMAC/signature/random component. Anyone can construct a valid-looking token for any user ID by picking a plausible timestamp — no password required. This is a reachable authentication bypass the moment any verifier accepts these tokens (which is the intended flow, since this function mints them as the session credential).</p>
+</div>
+<div class="collapsed" data-collapsed-list>
+<h3>2 more verified issues</h3>
+<div class="row">
+<span class="sev critical">Critical</span>
+<span class="d">Passwords stored and compared in plaintext — no hashing</span>
+<span class="f">src/login.ts:7</span>
+</div>
+<div class="row">
+<span class="sev low">Low</span>
+<span class="d">Timing difference between user-not-found and wrong-password paths leaks account existence</span>
+<span class="f">src/login.ts:5</span>
+</div>
+</div>
+<footer>Audited with SeamStress · <a href="https://seamstress.dev">seamstress.dev</a></footer>
+</div></body></html>

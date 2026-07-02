@@ -43,6 +43,10 @@ A finding in the report reads roughly like:
 > If this is wrong: the wrong person can gain powers they shouldn't have.
 > Proof from your code: `if (session.id === userId) setRole(role)`
 
+See [`examples/`](./examples/) for a sample report and a case study of
+SeamStress auditing its own report generator — including the bug it found in
+itself and the fix that followed.
+
 ## How it works
 
 Two stages, both LLM-driven with programmatic guardrails:
