@@ -417,7 +417,7 @@ export function renderSeamMapHtml(map: SeamMap): string {
     lines.push('<div class="card" data-headline-card>');
     lines.push('<div class="top">');
     lines.push(`<span class="badge ${headline.blastRadius}">${SEVERITY_WORD[headline.blastRadius]}</span>`);
-    lines.push(`<span class="tag">money-path · ${escapeHtml(KIND_LABEL[kind])}</span>`);
+    lines.push(`<span class="tag">${escapeHtml(KIND_LABEL[kind])}</span>`);
     lines.push('<span class="verified">✓ verified against source</span>');
     lines.push("</div>");
     lines.push(`<h2>${escapeHtml(headline.description)}</h2>`);

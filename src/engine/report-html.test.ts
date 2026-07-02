@@ -106,6 +106,20 @@ const FIXTURE = mapFrom([
   { desc: "Cascade delete may be intended", blast: "critical", verified: false }, // judgment_call → must NOT be headline
 ]);
 
+describe("renderSeamMapHtml — headline kind tag reflects the real seam kind", () => {
+  it("labels an auth headline with the auth kind label, not 'money-path'", () => {
+    const authSeam: Seam = { ...seam, kind: "auth", label: "app/auth/roles.ts" };
+    const map = mapFrom([{ desc: "role check missing on update", blast: "critical", verified: true }]);
+    map.seams = [authSeam];
+    map.review.seams = [authSeam];
+
+    const html = renderSeamMapHtml(map);
+
+    expect(html).toContain("Login &amp; access control"); // the real kind label (escaped)
+    expect(html).not.toContain("money-path"); // the hardcoded mock prefix must be gone
+  });
+});
+
 describe("renderSeamMapHtml — logic pins", () => {
   const html = renderSeamMapHtml(FIXTURE);
 
