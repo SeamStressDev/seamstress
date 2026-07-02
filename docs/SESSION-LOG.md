@@ -3,3 +3,4 @@
 date | project | ~duration | shipped | pre-flight result
 --- | --- | --- | --- | ---
 2026-07-02 | seam-bug-benchmark | ~2h | _(fill)_ | _(fill)_
+2026-07-02 | seam-bug-benchmark (rung 2: emitter + hardening + first scored run) | ~2h | _(fill)_ | _(fill)_
