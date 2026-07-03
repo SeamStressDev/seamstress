@@ -23,6 +23,47 @@ test** caught one coverage gap (literal terms lost the old regex reach on
 entry has been re-run against real output under them; 002/003's earlier `found`
 were scored by the old flawed traps and must be re-confirmed.
 
+## Field-scope investigation (post-rung-6)
+
+A follow-up task assumed the `asserted_claim` matcher scored only a finding's
+`description` — a suspected recall hole, since a recommendation-shaped wrong
+claim ("randomize the IDs") naturally lives in `reasoning`. **The premise did
+not hold.** `findingText` (`score.ts`) already joins
+`description + reasoning + consequence` with `"\n"`, and both `groupsMatch`
+(must_find) and `assertedClaimMatches` (traps) run on it. There is no
+`recommendation` field on `Finding`, and none is emitted anywhere in `src/` or
+`benchmark/`. **No `score.ts` change was made** — nothing to widen; reasoning
+was already in scope.
+
+**Re-fire analysis — safe, measured against RECONSTRUCTIONS.** The three real
+rung-5 FP findings were checked for trap vocabulary that, with `reasoning`/
+`consequence` in scope, would re-fire a trap: all three come back SAFE with
+margin. **Caveat, stated plainly:** this was measured against the
+investigation's *reconstructed* multi-field texts, not pristine originals — the
+rung-5 `/tmp` loss means the corpus's three FP strings are reconstructions. Safe
+with margin, so the result stands; the record must not read as the clean
+version. (Third time the lost-findings wound has cost confidence — the
+persisted-path rule exists for exactly this.)
+
+**Corpus grown 24 → 28.** The 24 originals were description-shaped and did not
+exercise multi-field assembly. Four Nate-approved cross-field strings are frozen
+in: three must-fire (004-randomizing, 002-fix-is-documentation, 005-caching)
+whose wrong claim lives in `reasoning` — each misses under a *simulated*
+description-only scope and hits under full text, proving multi-field scoring is
+load-bearing — plus one must-not-fire **separator-crossing negation guard** (004:
+randomization vocab in `description`, negated "not the fix" in `reasoning`, silent
+*because of* the negator reaching across `"\n"`; strip the negator and it fires).
+
+**Correction to the record.** All prior trap results — the precision redesign,
+"9/10 fired on correct rejections", and the three FPs — were **already scored
+against full finding text** (`description+reasoning+consequence`), not
+description-only. They **stand**; they are not superseded. The "description-scoped
+/ superseded by full-text scoping" framing rested on the incorrect premise above.
+
+**Bait session UNBLOCKED.** Because the matcher reads `reasoning`, a
+recommendation-shaped wrong claim in a finding's reasoning is catchable — the
+recall test is valid, not confounded by a field-scope hole.
+
 ## Next three tasks
 
 1. **Bait-fixture session — now TWO deliverables:** (a) validate trap RECALL

@@ -8,3 +8,4 @@ date | project | ~duration | shipped | pre-flight result
 2026-07-03 | seam-bug-benchmark (rung 4: tenant_isolation kind + entries 002–005) | ~2h | _(fill)_ | _(fill)_
 2026-07-03 | seam-bug-benchmark (rung 5: review-only runs 002–004; halted for trap-matcher redesign) | ~2h | _(fill)_ | _(fill)_
 2026-07-03 | seam-bug-benchmark (rung 6: asserted_claim matcher + 10-trap migration + frozen corpus) | ~3h | _(fill)_ | _(fill)_
+2026-07-03 | seam-bug-benchmark (field-scope investigation: matcher already full-text; corpus 24→28 cross-field) | ~1h | _(fill)_ | _(fill)_
