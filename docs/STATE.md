@@ -2,50 +2,52 @@
 
 ## Current state
 
-Rung 3 complete: the benchmark now separates entry validity from detector
-results, and has a real decomposition result on record. `entry.json` carries
-`validity: proposed|validated` + `validity_evidence` (entry 001 is `validated`
-with own-code clean-room attestation); detector outcomes live in an append-only
-public ledger, `benchmark/results/<entry-id>.jsonl`. Both runner emitters ship
-(`map --json` → `projectSeamMap`, `review --json` → `projectReview`). Full suite
-is 162 passing (16 files); typecheck covers the scorer.
+Rung 4 complete: the benchmark now has **five entries** spanning four seam
+kinds, and the engine's `SeamKind` enum gained `tenant_isolation` to express the
+tenant class. Entries: `001` cosmetic-key-isolation (`safety_delivery`,
+**validated**); `002` conjunctive-suppression-unsafe-default (`money_path`);
+`003` idempotency-coverage-asymmetry (`money_path`); `004`
+missing-ownership-check-idor (`auth`); `005` identity-absent-cache-key
+(`tenant_isolation`) — 002–005 all **proposed**, postmortem-derived from the
+public seam-bug catalog. The `tenant_isolation` kind carries a "Cross-tenant
+data" renderer label; `benchmark/schema.md`'s kind list was updated in the same
+commit. Full suite 164 passing (16 files); typecheck clean.
 
-**Ledger has two rows for entry 001, and together they decompose the recall:**
-- `full` / **missed** (2026-07-02, engine `9ea4d8a`, $0): the pre-filter never
-  surfaced the seam — break-point (a).
-- `review-only` / **found** (2026-07-03, engine `40efa46`, $0.15): handed the
-  seam directly, the review pipeline hit both `must_find` items with zero false
-  positives.
-
-So **entry 001's gap is 100% detection-recall, 0% judgment-recall** — judgment
-catches it once the seam arrives; detection never delivers it. The pre-registered
-65/35 prediction (that judgment would find it) resolved **CORRECT**. One nuance
-worth keeping: the shared-quota finding landed `judgment_call`, not
-`verified_real` — the pipeline honestly bounded the provider-behavior assumption
-(code documents shared-*account*, not shared-*limit*) — which validates the
-scorer's record-don't-gate design (the hit counts; the residual uncertainty is
-recorded, not laundered into a false certainty).
+Each new entry was authored verbatim from the rung-4 companion spec, validated
+before commit (validateItem passes, empty projection scores FAIL with the exact
+must_find miss count, byte-provenance of `seam.json` diff-clean against the
+frozen fixtures), and committed one at a time. Entry 001's ledger still holds the
+recall decomposition from rung 3 (full/missed + review-only/found → gap is 100%
+detection-recall); 002–005 have no ledger rows yet — their review-only runs are
+the next session.
 
 ## Next three tasks
 
-1. **Curate 3–5 postmortem-derived entries** (Claude + Nate task, not Claude
-   Code) — real public incidents mapped to fixtures + ground truth. These are
-   the entries the detector was **not** tuned against (see teach-to-the-test
-   anomaly), so they carry the honest recall signal.
-2. **Tenant `SeamKind` decision** — add a kind or document that tenant seams map
-   to `pii`/`other`; tenant entries aren't expressible until resolved.
-3. **Design the structural / second-channel detection signal** — surface subtle,
-   keyword-free money/auth/safety seams the pre-filter currently scores 0. Note:
-   this work is explicitly **informed by entry 001**, which reclassifies 001 from
-   a recall test to a regression case (per the teach-to-the-test anomaly).
+1. **Gated review-only runs on 002–005** — run each seam through the review
+   pipeline, score against ground truth, tighten the three bite-risk traps
+   against the real findings, and flip each entry to `validated` as it clears.
+2. **Full-pipeline runs on the same four** — extending the recall ledger with
+   `full`-mode rows to decompose detection vs judgment recall per entry.
+3. **Run-all aggregation harness** — now that multiple entries exist, a runner
+   that scores every entry and reports a summary (keeping `full` vs
+   `review-only` separate per the ledger rule).
 
 ## Open anomalies
 
-- **No tenant seam kind.** The product thesis names money/auth/tenant seams, but
-  the `SeamKind` enum has no tenant kind (`auth`, `money_path`, `pii`,
-  `data_deletion`, `safety_delivery`, `other`). Decide before launch: add a kind,
-  or document that tenant seams map to `pii`/`other`. (Tenant benchmark entries
-  are not expressible until then.)
+- **~~No tenant seam kind.~~** RESOLVED — the anomaly read: *"the `SeamKind` enum
+  has no tenant kind … Decide before launch: add a kind, or document that tenant
+  seams map to `pii`/`other`."* Decided: added `tenant_isolation` (label
+  "Cross-tenant data"); entry 005 exercises it end to end.
+- **002–005 ground truth untested against real findings.** These entries scored
+  only against empty/synthetic projections so far. Three bite-risk `must_not_claim`
+  traps are deliberately loose pending the gated review-only runs: 002
+  `fix-is-documentation-or-training`, 004 `randomizing-ids-is-the-fix`, 005
+  `caching-authenticated-is-inherently-wrong`. They get tightened against real
+  findings, not before.
+- **Detector kind list omits `tenant_isolation`.** The detection prompt's kind
+  list is unchanged, so full-pipeline runs cannot classify tenant seams until the
+  detection-signal work lands; review-only runs are unaffected (`seam.json`
+  carries the kind explicitly).
 - **~~`benchmark/` is outside `npm run typecheck` scope.~~** RESOLVED — a
   separate `benchmark/tsconfig.json` scoped to `scoring/` is now wired into the
   `typecheck` script. (Residual gap: `scoring/**/*.test.ts` is excluded, so the
