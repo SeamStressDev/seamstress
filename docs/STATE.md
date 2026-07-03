@@ -19,9 +19,10 @@ untouched). The migration passed the frozen oracle, then a **pre-existing rung-1
 test** caught one coverage gap (literal terms lost the old regex reach on
 "separate critical API key"), which was fixed and folded into the corpus (23→24).
 
-**No validity flips — 002–005 stay `proposed`.** The traps are redesigned but no
-entry has been re-run against real output under them; 002/003's earlier `found`
-were scored by the old flawed traps and must be re-confirmed.
+**~~No validity flips — 002–005 stay `proposed`.~~** SUPERSEDED by the
+validation session (see §Validation session below): 002/003/004 flipped to
+`validated` on clean scorer PASSes under the migrated traps; 005 stays
+`proposed` on a `partial` (must_find vocabulary gap, tool found the bug).
 
 ## Field-scope investigation (post-rung-6)
 
@@ -121,17 +122,66 @@ nondeterministic, not informative, reinforcing that it must never be an oracle.
 un-rescued.** Baitability of the tool on this error was substantially
 overestimated (prediction was Claude-authored; Nate judged specimens).
 
+## Validation session (2026-07-03, engine_commit 514d674 — COMPLETE)
+
+Four gated review-only runs (002/003/004/005, one clean scoring each, no
+re-runs), scored against the migrated `asserted_claim` traps AS-IS. Artifacts
+persisted and committed under `benchmark/results/runs/<entry>/2026-07-03-*`;
+projection↔log verbatim cross-check passed before each run counted. Ledger rows
+appended (005's is its first — file created). **4-of-5 entries now `validated`**
+(001 prior + 002/003/004 today); **core validation loop CLOSED for money_path
+and auth, OPEN for tenant_isolation** (005).
+
+- **002 VALIDATED** — PASS 2/2, both hits `verified_real`, 0 FPs ($0.1279).
+  Rung-5 contrast: same entry FAILed with an FP under the old vocabulary traps;
+  clean PASS under the migrated ones — the precision redesign confirmed on the
+  entry's own real output.
+- **003 VALIDATED** — PASS 1/1 `verified_real`, 0 FPs ($0.0995). The live
+  finding opened with near-identical phrasing to the rung-5 FP reconstruction
+  on the corpus no-fire side ("chargeViaIntent attaches no idempotency key…"),
+  and the scope-bound trap correctly held silent — the exact hazard shape the
+  redesign was built for, live-tested (caveat: corpus string is a
+  reconstruction, rung-5 /tmp loss).
+- **004 VALIDATED** — PASS 1/1 `verified_real`, 0 FPs ($0.0639). Both traps
+  live-exercised and held: prominent sequential-ID discussion framed
+  amplifier-not-fix (randomizing trap silent — consistent with the bait
+  session's 3 runs and the probe), explicit praise of getInvoice as "exactly
+  the check that is missing here" (neighboring-route trap, the N=40 tightest
+  override, silent). Scope note: the bait session exercised only the
+  randomizing trap; the neighboring-route trap's real-output evidence is this
+  run + the frozen corpus.
+- **005 stays `proposed`** — FAIL 1/2, outcome `partial`, 0 FPs ($0.1051),
+  first-ever run, tenant_isolation debut. **The tool FOUND the bug** —
+  finding-1 (critical/high, `verified_real`): "a key that omits user identity",
+  "cacheKey(path, query) never incorporates userId" — but the
+  `identity-absent-from-cache-key` must_find missed on regex vocabulary in BOTH
+  `all_of` groups: camelCase `cacheKey` defeats `cache .?key` (space required),
+  and "omits user identity" / "never incorporates userId" are absent from the
+  no/without/missing alternation. A must_find-side instance of the
+  literal-vocabulary brittleness family (residual (e)); rung 6 hardened the
+  trap matchers, not the must_find `groupsMatch` style. **QUEUED, not patched**
+  (session no-edit rule): widen 005's must_find vocabulary, then a fresh gated
+  run for the validity decision. The consequence must_find hit cleanly
+  (2 findings, both `verified_real`).
+
+An attempted mid-session ruling recorded 005 as "VALIDATED 2/2"; the scorer's
+deterministic output on the persisted projection (sha256 d6a68f76…) is FAIL 1/2
+and was reproduced for reconciliation before recording — the ledger carries the
+scorer's verdict.
+
 ## Next three tasks
 
-1. **Resume validation runs on 002–005** under the migrated traps — re-run 004,
-   first-run 005, and make the per-entry `validated`/`proposed` decisions.
+1. **Widen 005's must_find vocabulary** (`identity-absent-from-cache-key`:
+   camelCase `cacheKey`, "omits", "never incorporates") + fresh gated run →
+   validity decision; consider a must_find-side vocabulary audit across entries
+   (same brittleness family as residual (e)).
 2. **Full-pipeline runs on 002–005 + run-all aggregation harness** — extend the
    recall ledger with `full`-mode rows and add a runner scoring every entry
    (keeping `full` vs `review-only` separate; `bait/` stays excluded).
 3. **Natural-error-rate study** — neutral (non-tempting) fixture, many runs;
    the bait session measured resistance under a stacked deck, which says
    nothing about natural rates. Queued alongside: annotated-vs-stripped-comment
-   recall study.
+   recall study, pre-flight skill.
 
 ## Pre-registered hypotheses
 
@@ -206,11 +256,11 @@ forbidden.
   has no tenant kind … Decide before launch: add a kind, or document that tenant
   seams map to `pii`/`other`."* Decided: added `tenant_isolation` (label
   "Cross-tenant data"); entry 005 exercises it end to end.
-- **002–005 validity still unconfirmed.** The matcher redesign (rung 6) is done,
-  but no entry has been re-run against real output under the migrated traps.
-  002/003's earlier `found` were scored by the old flawed traps; they must be
-  re-confirmed. Validity decisions resume in the next validation session (re-run
-  004, first-run 005).
+- **~~002–005 validity still unconfirmed.~~** MOSTLY RESOLVED (validation
+  session, 2026-07-03): 002/003/004 `validated` on clean PASSes under the
+  migrated traps against their own real output. Residual: 005 stays `proposed`
+  on a must_find vocabulary miss (tool found the bug; instrument gap queued —
+  see §Validation session).
 - **Detector kind list omits `tenant_isolation`.** The detection prompt's kind
   list is unchanged, so full-pipeline runs cannot classify tenant seams until the
   detection-signal work lands; review-only runs are unaffected (`seam.json`
