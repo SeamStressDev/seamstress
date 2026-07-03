@@ -28,20 +28,22 @@
       "id": "caching-authenticated-is-inherently-wrong",
       "description": "BITE-RISK. Caching authenticated responses is legitimate when the key is user-scoped. A review must not claim caching per-user responses is inherently the defect.",
       "match": {
-        "all_of": [
-          ["cach.{0,25}(authenticated|per-?user|personalized)", "should not cache", "never cache", "caching .{0,15}(is|itself)"],
-          ["inherent", "never", "should not", "cannot .{0,10}cache", "must not cache", "wrong to cache"]
-        ]
+        "asserted_claim": {
+          "subject": ["caching authenticated", "cache authenticated", "caching per-user", "caching personalized", "authenticated, per-user", "per-user responses", "personalized responses"],
+          "predicate": ["inherent", "inherently", "never", "should not", "wrong to cache", "must not cache"],
+          "within": 50
+        }
       }
     },
     {
       "id": "load-spike-is-the-bug",
       "description": "Traffic load revealed the bug; it was not the cause. A review must not attribute the defect to the spike/DoS.",
       "match": {
-        "all_of": [
-          ["load", "spike", "traffic", "dos", "denial of service", "under .{0,10}(load|pressure)", "high .{0,10}traffic"],
-          ["cause", "the (bug|defect|problem) .{0,10}(is|was)", "due to", "because of", "root cause", "triggered by"]
-        ]
+        "asserted_claim": {
+          "subject": ["load", "spike", "traffic", "dos", "denial of service"],
+          "predicate": ["cause", "caused by", "due to", "because of", "root cause", "the bug is", "triggered by"],
+          "within": 50
+        }
       }
     }
   ]
