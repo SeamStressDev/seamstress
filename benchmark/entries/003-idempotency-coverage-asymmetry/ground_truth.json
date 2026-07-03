@@ -19,24 +19,23 @@
       "id": "protected-path-is-defective",
       "description": "The legacy path is correctly protected. A review must not claim the idempotency implementation on the legacy/charges path is the defect.",
       "match": {
-        "all_of": [
-          ["legacy", "charges .{0,10}path", "first .{0,10}path", "chargeViaLegacy"],
-          ["broken", "defect", "wrong", "incorrect", "bug in", "flaw", "fails", "missing .{0,10}idempoten"]
-        ]
+        "asserted_claim": {
+          "subject": ["legacy", "chargevialegacy", "charges path", "first path"],
+          "predicate": ["broken", "defect", "defective", "wrong", "incorrect", "bug", "flaw", "fails", "fail"],
+          "within": 50
+        }
       }
     },
     {
       "id": "idempotency-missing-entirely",
       "description": "Idempotency is not absent everywhere — it exists on one path. A review claiming there is no idempotency at all has misread the coverage-asymmetry mechanism.",
       "match": {
-        "all_of": [
-          [
-            "no idempoten.{0,30}(anywhere|at all|entirely|whatsoever|throughout|across .{0,15}(the )?code)",
-            "idempoten.{0,20}(missing|absent).{0,15}(entirely|everywhere|at all|throughout)",
-            "(lacks|without|has no) .{0,15}idempoten.{0,25}(anywhere|at all|entirely|throughout|whatsoever)",
-            "no .{0,15}(idempoten|dedup).{0,20}(anywhere|at all|entirely|in (the|this) (code|system))"
-          ]
-        ]
+        "asserted_claim": {
+          "subject": ["idempotency", "idempotent", "idempoten", "dedup", "deduplication"],
+          "predicate": ["no", "without", "missing", "absent", "lacks", "lack", "none", "never"],
+          "scope": ["anywhere", "at all", "entirely", "throughout", "whatsoever", "everywhere", "in the code", "in this code", "across the code"],
+          "within": 60
+        }
       }
     }
   ]
