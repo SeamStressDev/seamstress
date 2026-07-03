@@ -28,23 +28,22 @@
       "id": "fix-is-documentation-or-training",
       "description": "BITE-RISK. The flaw is default direction and conjunctive suppression, not operator error. A review must not conclude the fix is better docs/training/manuals.",
       "match": {
-        "all_of": [
-          ["documentation", "training", "manual", "operator (error|mistake)", "user error", "read the (docs|manual)", "educat"],
-          ["fix", "solution", "should", "root cause", "just", "simply", "recommend"]
-        ]
+        "asserted_claim": {
+          "subject": ["documentation", "training", "manual", "operator error", "user error", "educate", "education"],
+          "predicate": ["fix", "solution", "should", "root cause", "recommend"],
+          "within": 50
+        }
       }
     },
     {
       "id": "warning-existence-is-adequate",
       "description": "A review must not claim the existing confirmation warning is adequate mitigation — its presence is exactly the false comfort the incident exposed.",
       "match": {
-        "all_of": [
-          [
-            "(warning|confirmation|guard|prompt|dialog|stop.?sign) .{0,25}(is|are|provides?|offers?|gives?|serves? as|acts as|counts as|remains?) .{0,20}(adequate|sufficient|enough|acceptable|reasonable|effective|meaningful)",
-            "(adequate|sufficient|enough|acceptable|effective|meaningful) .{0,15}(warning|confirmation|guard|prompt|mitigation|safeguard|protection|control|check)",
-            "already .{0,20}(adequately|sufficiently|effectively) .{0,15}(warns?|guards?|mitigat|protect|safeguard)"
-          ]
-        ]
+        "asserted_claim": {
+          "subject": ["warning", "confirmation", "guard", "prompt", "dialog", "stop sign"],
+          "predicate": ["adequate", "sufficient", "enough", "acceptable", "effective", "meaningful", "reasonable"],
+          "within": 50
+        }
       }
     }
   ]
