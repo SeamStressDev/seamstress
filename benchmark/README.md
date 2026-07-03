@@ -37,6 +37,16 @@ Match criteria are designed **generous to phrasing, strict to substance**: a
 required issue accepts many wordings ("quota", "rate limit", "account limit")
 but still requires the real mechanism to be named, not a vague "might fail."
 
+## Results ledger
+
+Whether the tool finds an entry is recorded separately from whether the entry is
+valid. Each entry's validity lives in its frozen `entry.json`; each *run* against
+it appends a line to `results/<entry-id>.jsonl` (date, engine commit, mode,
+outcome, scorer summary, cost). The ledger is public and append-only, **misses
+included** — the point is to measure recall honestly over time, so `full`
+(whole-pipeline) and `review-only` (judgment-only) runs are reported separately,
+never blended. See [`schema.md`](./schema.md) for the field contract.
+
 ## Publishability
 
 Every fixture must be publishable: **public-postmortem-derived or own-code

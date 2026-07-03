@@ -1,0 +1,1 @@
+{"date": "2026-07-02", "engine_commit": "9ea4d8a", "mode": "full", "outcome": "missed", "scorer_summary": "[001-cosmetic-key-isolation] FAIL — 0/2 must_find hit, 2 missed, 0 false positive(s)", "cost_usd": 0.00}

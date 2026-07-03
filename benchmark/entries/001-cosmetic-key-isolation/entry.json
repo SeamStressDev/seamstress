@@ -4,5 +4,6 @@
   "seam_kind": "safety_delivery",
   "difficulty": 3,
   "source": "own-code-derived (clean-room)",
-  "status": "draft"
+  "validity": "validated",
+  "validity_evidence": "Clean-room reconstruction of an own-code critical-alert delivery pattern (the same cosmetic-key-isolation shape behind fixtures/resend-critical-email.seam.json); author attestation; entry created in commit 865c540."
 }

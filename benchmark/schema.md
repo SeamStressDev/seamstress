@@ -16,11 +16,23 @@
 | `seam_kind` | enum   | **the engine's real `SeamKind` values, verbatim:** `auth`, `money_path`, `pii`, `data_deletion`, `safety_delivery`, `other` |
 | `difficulty`| 1–3    | 1 = flaw visible in a single file; 2 = flaw only visible across files/components; 3 = flaw requires runtime/account/quota context not stated in the code |
 | `source`    | string | commit ref, postmortem URL, or `"own-code-derived (clean-room)"` |
-| `status`    | enum   | `draft` \| `verified`                                        |
+| `validity`  | enum   | `proposed` \| `validated` — is the planted bug real and the ground truth correct? Says **nothing** about whether the tool finds it. |
+| `validity_evidence` | string | why the entry is valid (incident ref, source commit, human confirmation). Required when `validity: "validated"`. |
 
-**Status rule:** `verified` may only be set after a real SeamStress run against
-the fixture has confirmed the ground truth is discoverable. **New entries always
-start as `draft`.**
+**Validity rule.** `validity` certifies the *entry*, not the *detector* — it
+answers "is this a real bug with correct ground truth," never "does SeamStress
+catch it." That separation is the point: a known-answer benchmark must be able to
+hold entries the tool currently misses. Whether the tool finds an entry is
+recorded separately, per run, in the results ledger (below).
+
+- **own-code-derived entries:** author attestation citing the source suffices in
+  `validity_evidence`.
+- **postmortem-derived entries:** author attestation **plus** a second-model
+  blind review of the ground truth before `validated` (guards against a
+  plausible-but-wrong reconstruction).
+
+New entries start as `proposed`; `validated` is a deliberate, evidence-backed
+upgrade. (This requirement is documented, not yet enforced in code.)
 
 Note on `seam_kind`: the values are the engine's internal `SeamKind`
 (`src/types/seam.ts`). There is deliberately **no** tenant/multi-tenant kind
@@ -77,9 +89,10 @@ a contract:
 
 `findings` and `verifications` use the engine's internal types verbatim
 (`src/types/finding.ts`, `verification.ts`); the scorer imports those types and
-`effectiveStatus` directly, so it scores the true contract. **Wiring the `map`
-runner to emit this projection is a future engine task** (see `docs/STATE.md`);
-until then, projections are hand-authored (as in the scorer's tests).
+`effectiveStatus` directly, so it scores the true contract. The `map` runner
+emits this projection via `--json` (since commit `6b3ba69`); review-only
+emission from the `review` runner is landing alongside this schema change. The
+scorer's own tests still use hand-authored projections.
 
 Seam kind lives on the **seam**, not the finding — so the projection carries
 `seams[]`, and the scorer resolves each finding's kind via its `seamId`.
@@ -95,3 +108,28 @@ positives. CLI exit codes: **0** = passed, **2** = scored but not passed (a miss
 or a false positive), **1** = usage/IO/ground-truth error. An empty findings
 projection therefore exits `2` with all must_find items listed as misses — never
 a silent pass.
+
+## Results ledger
+
+Whether the tool finds an entry — as opposed to whether the entry is valid — is
+recorded per run in an **append-only** ledger at `benchmark/results/<entry-id>.jsonl`,
+one JSON object per line:
+
+    { "date": "YYYY-MM-DD", "engine_commit": "<sha>", "mode": "full" | "review-only",
+      "outcome": "found" | "missed" | "partial", "scorer_summary": "<verbatim>",
+      "cost_usd": 0.00 }
+
+- **`mode`** — `full` runs the whole pipeline (detection → review); `review-only`
+  feeds an assembled seam straight to the review pipeline, bypassing detection.
+- **`outcome`** (from the scorer result):
+  - `found` — every `must_find` hit, zero false positives.
+  - `partial` — at least one `must_find` hit, or all hit with ≥1 false positive.
+  - `missed` — zero `must_find` hit.
+- **`scorer_summary`** — the scorer's one-line summary, verbatim.
+
+The ledger is append-only and public, **misses included** — a benchmark that
+hid its misses would measure nothing. Recall reporting keeps `full` and
+`review-only` **separate and never blended**: they answer different questions
+(does the whole pipeline catch it, vs. would judgment catch it if handed the
+seam), and averaging them would hide exactly the detection-vs-judgment
+decomposition the ledger exists to expose.
