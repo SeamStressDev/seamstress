@@ -62,6 +62,43 @@ export interface MatchCriteria {
    * second concept (e.g. shared-account) to co-occur.
    */
   all_of?: string[][];
+  /**
+   * Asserted-claim gate (for must_not_claim traps). Fires only when a claim is
+   * *predicated of a subject* within a bound span — not on mere word
+   * co-occurrence across clauses. See {@link AssertedClaim}. This replaces the
+   * `all_of` two-vocabulary shape that fired on correct findings (a finding that
+   * names a wrong conclusion to reject it, states a scoped fact, or blames a
+   * different subject). Ten-trap migration in rung 6.
+   */
+  asserted_claim?: AssertedClaim;
+}
+
+/**
+ * A trap that fires only when a PREDICATE is asserted OF a SUBJECT, within a
+ * bound span — the fix for the vocabulary-co-occurrence false positives.
+ *
+ * Two forms:
+ * - **Plain** (no `scope`): a subject term and a predicate term co-occur within
+ *   `within` chars AND no negator sits in/around that span. So "the guard is
+ *   adequate" fires, but "the guard is *not* adequate" / "protects *nothing*"
+ *   does not (negation guard).
+ * - **Scope-bound** (`scope` set): the predicate IS the negation, and the claim
+ *   fires only when a global-scope marker also co-occurs. So "no idempotency
+ *   *anywhere*" fires, but the correctly-scoped "no idempotency *on this path*"
+ *   does not. The negation guard does NOT apply here — the negation is the claim.
+ *
+ * Terms match on word boundaries (`\b` + term), so "guard" never matches inside
+ * "safeguard".
+ */
+export interface AssertedClaim {
+  /** Subject vocabulary — the thing a claim must be predicated OF. */
+  subject: string[];
+  /** Predicate vocabulary — the wrong claim (or, in scope form, the negation). */
+  predicate: string[];
+  /** Max chars between a subject and predicate match, either order. Default 60. */
+  within?: number;
+  /** Global-scope markers. Presence switches to the scope-bound form. */
+  scope?: string[];
 }
 
 export interface GroundTruthItem {
@@ -88,7 +125,8 @@ function criteriaIsEmpty(m: MatchCriteria): boolean {
     m.seam_kind === undefined &&
     m.blast_radius_min === undefined &&
     m.file === undefined &&
-    (m.all_of === undefined || m.all_of.every((g) => g.length === 0))
+    (m.all_of === undefined || m.all_of.every((g) => g.length === 0)) &&
+    m.asserted_claim === undefined
   );
 }
 
@@ -111,6 +149,18 @@ function validateItem(item: GroundTruthItem): void {
     );
   }
   if (item.match.file !== undefined) compileOrThrow(item.match.file, item.id);
+  if (item.match.asserted_claim !== undefined) {
+    const ac = item.match.asserted_claim;
+    const terms = [...(ac.subject ?? []), ...(ac.predicate ?? []), ...(ac.scope ?? [])];
+    if (!ac.subject || ac.subject.length === 0 || !ac.predicate || ac.predicate.length === 0) {
+      throw new Error(
+        `ground-truth item "${item.id}" has an asserted_claim missing subject or predicate terms`,
+      );
+    }
+    if (terms.some((t) => t.trim().length === 0)) {
+      throw new Error(`ground-truth item "${item.id}" has an empty asserted_claim term`);
+    }
+  }
   for (const group of item.match.all_of ?? []) {
     if (group.length === 0) {
       throw new Error(
@@ -128,6 +178,55 @@ function findingText(f: Finding): string {
 
 function groupsMatch(text: string, groups: string[][]): boolean {
   return groups.every((alts) => alts.some((rx) => new RegExp(rx, "i").test(text)));
+}
+
+// ── asserted_claim evaluation ───────────────────────────────────────────────
+const DEFAULT_WITHIN = 60;
+const GUARD_BEFORE = 6; // catch a negator just before the span ("no amount")
+const GUARD_AFTER = 24; // catch a negator just after ("protects nothing")
+const SCOPE_PAD = 40; // window to find a global-scope marker around the claim
+/** Best-effort negator set — NOT exhaustive (residual risk documented in STATE.md). */
+const NEGATOR = /\b(no|not|never|zero|without|nothing|none|cannot|lacks?|fails? to|far from|hardly)\b|n['’]t\b/i;
+
+/** All start/end offsets where any term matches on a leading word boundary. */
+function termHits(terms: string[], text: string): { s: number; e: number }[] {
+  const out: { s: number; e: number }[] = [];
+  for (const term of terms) {
+    const esc = term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp("\\b" + esc, "gi");
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(text)) !== null) {
+      out.push({ s: m.index, e: m.index + m[0].length });
+      if (m.index === re.lastIndex) re.lastIndex++;
+    }
+  }
+  return out;
+}
+
+/** Does the finding text assert this claim of its subject? (See {@link AssertedClaim}.) */
+function assertedClaimMatches(text: string, ac: AssertedClaim): boolean {
+  const within = ac.within ?? DEFAULT_WITHIN;
+  const subjects = termHits(ac.subject, text);
+  const predicates = termHits(ac.predicate, text);
+  const scoped = ac.scope !== undefined && ac.scope.length > 0;
+  for (const s of subjects) {
+    for (const p of predicates) {
+      if (Math.abs(s.s - p.s) > within) continue;
+      const spanStart = Math.min(s.s, p.s);
+      const spanEnd = Math.max(s.e, p.e);
+      if (scoped) {
+        // Scope-bound: the negation is the predicate; require a global-scope
+        // marker nearby. Negation guard deliberately NOT applied here.
+        const win = text.slice(Math.max(0, spanStart - SCOPE_PAD), spanEnd + SCOPE_PAD);
+        if (termHits(ac.scope as string[], win).length > 0) return true;
+      } else {
+        // Plain: fire unless a negator sits in/around the span.
+        const win = text.slice(Math.max(0, spanStart - GUARD_BEFORE), spanEnd + GUARD_AFTER);
+        if (!NEGATOR.test(win)) return true;
+      }
+    }
+  }
+  return false;
 }
 
 /** Does one finding satisfy one criterion? */
@@ -153,8 +252,14 @@ function findingMatches(
   if (criteria.all_of !== undefined && criteria.all_of.length > 0) {
     if (!groupsMatch(findingText(finding), criteria.all_of)) return false;
   }
+  if (criteria.asserted_claim !== undefined) {
+    if (!assertedClaimMatches(findingText(finding), criteria.asserted_claim)) return false;
+  }
   return true;
 }
+
+/** Exposed for the asserted_claim corpus test (mechanism proof before migration). */
+export { assertedClaimMatches };
 
 export interface Hit {
   itemId: string;

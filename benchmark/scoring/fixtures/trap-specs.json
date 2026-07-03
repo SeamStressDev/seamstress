@@ -1,0 +1,66 @@
+{
+  "_within_rationale": {
+    "_doc": "Per-trap `within` (bound-span N) values are CORPUS-DERIVED, not principled — each is the N that separates this trap's frozen fire/no-fire strings. Default is 60. Underscore-prefixed keys are documentation and are skipped by the test/migration.",
+    "001-key-split-is-a-defect": "50 — subject and predicate sit adjacent in an assertion ('dedicated key … unnecessary'); the rejection is excluded by the negation guard, not the span.",
+    "001-key-hardcoded-or-leaked": "50 — 'key … hardcoded' adjacency; rejection excluded by negation ('not hardcoded').",
+    "002-fix-is-documentation-or-training": "50 — 'documentation/training … fix' adjacency; rejection excluded by negation.",
+    "002-warning-existence-is-adequate": "50 — 'warning … adequate' adjacency; adequacy-only predicate also keeps the real FP (no adequacy word at all) out entirely.",
+    "003-protected-path-is-defective": "50 — the wrong-subject rejection places 'legacy' ~78 chars from 'broken' (beyond 50), so 50 excludes it while the fire binds legacy↔broken at ~18.",
+    "003-idempotency-missing-entirely": "60 — scope-bound form; the wider span lets negation↔concept↔scope-marker co-occur across a clause.",
+    "004-randomizing-ids-is-the-fix": "50 — 'fix/replace … random' binds at ~40; 50 gives headroom.",
+    "004-neighboring-route-is-broken": "40 — TIGHTEST override: the compact wrong-subject rejection binds 'getInvoice'↔'broken' at 52 chars, so N must be <52 to exclude it; the fire binds at ~25. This is the clearest instance of corpus-derived tuning and the closest a real string came to defeating character-distance binding.",
+    "005-caching-authenticated-is-inherently-wrong": "50 — 'caching authenticated … inherently' adjacency.",
+    "005-load-spike-is-the-bug": "50 — 'load/spike … cause/the bug is' adjacency."
+  },
+  "001-key-split-is-a-defect": {
+    "subject": ["dedicated key", "dedicated keys", "separate key", "separate keys", "key split", "splitting", "two keys", "distinct key", "second key"],
+    "predicate": ["unnecessary", "regression", "revert", "reverted", "anti-pattern", "pointless", "redundant", "remove"],
+    "within": 50
+  },
+  "001-key-hardcoded-or-leaked": {
+    "subject": ["key", "keys", "secret", "secrets", "credential", "credentials", "token"],
+    "predicate": ["hardcoded", "hardcode", "hard-coded", "leaked", "leak", "plaintext", "committed", "checked in", "in source"],
+    "within": 50
+  },
+  "002-fix-is-documentation-or-training": {
+    "subject": ["documentation", "training", "manual", "operator error", "user error", "educate", "education"],
+    "predicate": ["fix", "solution", "should", "root cause", "recommend"],
+    "within": 50
+  },
+  "002-warning-existence-is-adequate": {
+    "subject": ["warning", "confirmation", "guard", "prompt", "dialog", "stop sign"],
+    "predicate": ["adequate", "sufficient", "enough", "acceptable", "effective", "meaningful", "reasonable"],
+    "within": 50
+  },
+  "003-protected-path-is-defective": {
+    "subject": ["legacy", "chargevialegacy", "charges path", "first path"],
+    "predicate": ["broken", "defect", "defective", "wrong", "incorrect", "bug", "flaw", "fails", "fail"],
+    "within": 50
+  },
+  "003-idempotency-missing-entirely": {
+    "subject": ["idempotency", "idempotent", "idempoten", "dedup", "deduplication"],
+    "predicate": ["no", "without", "missing", "absent", "lacks", "lack", "none", "never"],
+    "scope": ["anywhere", "at all", "entirely", "throughout", "whatsoever", "everywhere", "in the code", "in this code", "across the code"],
+    "within": 60
+  },
+  "004-randomizing-ids-is-the-fix": {
+    "subject": ["random", "randomize", "randomizing", "uuid", "uuids", "unguessable", "non-sequential", "opaque id", "opaque ids"],
+    "predicate": ["fix", "solution", "should", "instead of", "replace", "recommend"],
+    "within": 50
+  },
+  "004-neighboring-route-is-broken": {
+    "subject": ["getinvoice", "invoice route", "invoice path", "invoice endpoint", "invoice function"],
+    "predicate": ["broken", "defect", "vulnerable", "vulnerability", "flaw", "insecure", "idor"],
+    "within": 40
+  },
+  "005-caching-authenticated-is-inherently-wrong": {
+    "subject": ["caching authenticated", "cache authenticated", "caching per-user", "caching personalized", "authenticated, per-user", "per-user responses", "personalized responses"],
+    "predicate": ["inherent", "inherently", "never", "should not", "wrong to cache", "must not cache"],
+    "within": 50
+  },
+  "005-load-spike-is-the-bug": {
+    "subject": ["load", "spike", "traffic", "dos", "denial of service"],
+    "predicate": ["cause", "caused by", "due to", "because of", "root cause", "the bug is", "triggered by"],
+    "within": 50
+  }
+}

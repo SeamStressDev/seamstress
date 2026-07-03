@@ -1,0 +1,85 @@
+{
+  "001-key-split-is-a-defect": {
+    "no_fire": [
+      "Introducing a dedicated key is a sensible direction, not unnecessary; the flaw is that it is incomplete."
+    ],
+    "fire": [
+      "Splitting the critical and bulk traffic onto two dedicated keys is an unnecessary change that should be reverted — it adds configuration complexity for no security benefit."
+    ]
+  },
+  "001-key-hardcoded-or-leaked": {
+    "no_fire": [
+      "The API key is correctly loaded from env, not hardcoded or leaked."
+    ],
+    "fire": [
+      "The API key is hardcoded directly in config.ts rather than read from the environment, so it is committed to the repo and leaked to anyone with source access."
+    ]
+  },
+  "002-fix-is-documentation-or-training": {
+    "no_fire": [
+      "The fix is not better documentation or operator training; it is changing the unsafe default routing."
+    ],
+    "fire": [
+      "The root cause is operator error, so the fix is better training and clearer documentation of the manual suppression steps."
+    ]
+  },
+  "002-warning-existence-is-adequate": {
+    "no_fire": [
+      "confirmRelease() is a purely cosmetic guard: it is hardcoded to return true, its result is discarded, and its warning shows neither the amount nor whether this is an interest or full-principal release — so it gates nothing and gives the operator no way to distinguish the safe case from the disaster.\nThe function unconditionally returns true, and runMonthlyInterest calls it but ignores the return value, so the release proceeds regardless of any human decision. The warning text is identical for a tiny interest wire and a full-principal wire and includes no amount, so even an attentive operator cannot tell the catastrophic case from the intended one. This is the human-in-the-loop safeguard, and it protects nothing. Critics who framed this as 'return value ignored' and 'no actionable information' describe the same defective guard; merged.\nThe operator sees the same generic 'funds will leave the bank' prompt whether wiring interest or the entire principal, and clicking through cannot stop the transfer anyway.",
+      "The confirmation warning is not adequate mitigation; it shows no amount."
+    ],
+    "fire": [
+      "The confirmation warning already provides adequate protection against an accidental release, since the operator must click through it before funds leave the bank."
+    ]
+  },
+  "003-protected-path-is-defective": {
+    "no_fire": [
+      "chargeViaLegacy is correctly protected with its idempotency key; the intent path is the broken one."
+    ],
+    "fire": [
+      "The chargeViaLegacy charges path is broken: its idempotency key handling is incorrect and produces duplicate charges on retry."
+    ]
+  },
+  "003-idempotency-missing-entirely": {
+    "no_fire": [
+      "chargeViaIntent attaches no idempotency key, so each retry in checkout() issues a fresh charge to the provider on the intent path.\ncheckout() retries the selected charge function up to 3 times on any thrown exception. chargeViaLegacy passes `idempotencyKey: 'order-${orderId}'`, so the provider deduplicates retries. chargeViaIntent calls the same callProvider with no opts argument (the comment confirms 'no idempotency key'), so the provider treats every attempt as a distinct request. The classic dangerous case is reachable: the provider processes the first charge, the response is lost in transit or a 5xx is returned after processing, the catch swallows it, and the loop fires a second and possibly third charge. There is no compensating lookup before retrying. This is a real, currently-reachable path whenever useIntents is true and a transient failure occurs after the charge lands.\n",
+      "There is no idempotency on the intent path, though the legacy path has it."
+    ],
+    "fire": [
+      "There is no idempotency anywhere in this code, so every charge path issues a duplicate charge whenever checkout() retries."
+    ]
+  },
+  "004-randomizing-ids-is-the-fix": {
+    "no_fire": [
+      "Randomizing the IDs is not the fix; the real fix is an ownership check."
+    ],
+    "fire": [
+      "The fix is to replace the sequential integer ids with random UUIDs so that document ids can no longer be guessed and enumerated."
+    ]
+  },
+  "004-neighboring-route-is-broken": {
+    "no_fire": [
+      "getDocument() performs no ownership check: requesterId is accepted then discarded via `void requesterId`, so any caller can retrieve any document by supplying a sequential integer docId (IDOR).\nThe function body looks up store.find((d) => d.id === docId) and returns the match with no comparison against ownerId; `void requesterId` explicitly documents that the authorization parameter is intentionally unused. IDs are sequential integers, so an attacker with any valid caller identity can iterate docId from 1 upward and read every document body in the store. The neighboring getInvoice() runs the identical lookup pattern but gates on `inv.ownerId !== requesterId`, proving the codebase's house style is to enforce ownership and that this is an omission, not a deliberate open endpoint. Every caller reaches store.find() through the same unprotected path — there is no alternate guarded route — so the harm is reachable through ordinary operation of the endpoint, not a hypothetical future misuse. The fourth critic's 'exported function / future caller' concern is the same missing-check defect viewed from the caller side; it does not describe a separate bad state and adds no reachability beyond the already-reachable enumeration.\n",
+      "getInvoice correctly scopes to the owner; getDocument is the broken IDOR route."
+    ],
+    "fire": [
+      "The getInvoice route is also broken and vulnerable to the same IDOR, because it performs the same lookup without verifying ownership."
+    ]
+  },
+  "005-caching-authenticated-is-inherently-wrong": {
+    "no_fire": [
+      "Caching authenticated pages is not inherently wrong; the flaw is the identity-free cache key."
+    ],
+    "fire": [
+      "Caching authenticated, per-user responses is inherently wrong and should never be done; personalized pages must always be regenerated per request."
+    ]
+  },
+  "005-load-spike-is-the-bug": {
+    "no_fire": [
+      "The load spike merely revealed the bug; it is not the cause. The bug is the missing user in the cache key."
+    ],
+    "fire": [
+      "The bug is caused by the traffic spike: under high load the cache is overwhelmed and starts returning the wrong entries."
+    ]
+  }
+}
