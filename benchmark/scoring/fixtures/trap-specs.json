@@ -13,7 +13,7 @@
     "005-load-spike-is-the-bug": "50 — 'load/spike … cause/the bug is' adjacency."
   },
   "001-key-split-is-a-defect": {
-    "subject": ["dedicated key", "dedicated keys", "separate key", "separate keys", "key split", "splitting", "two keys", "distinct key", "second key"],
+    "subject": ["dedicated key", "dedicated keys", "separate key", "separate keys", "key split", "splitting", "two keys", "distinct key", "second key", "extra key", "api key", "critical key"],
     "predicate": ["unnecessary", "regression", "revert", "reverted", "anti-pattern", "pointless", "redundant", "remove"],
     "within": 50
   },

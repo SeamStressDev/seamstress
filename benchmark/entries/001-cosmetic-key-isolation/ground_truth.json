@@ -30,7 +30,7 @@
       "description": "Introducing the dedicated key is directionally sensible; the flaw is incompleteness, not the key split. A review must not claim the split itself is a defect/regression to revert.",
       "match": {
         "asserted_claim": {
-          "subject": ["dedicated key", "dedicated keys", "separate key", "separate keys", "key split", "splitting", "two keys", "distinct key", "second key"],
+          "subject": ["dedicated key", "dedicated keys", "separate key", "separate keys", "key split", "splitting", "two keys", "distinct key", "second key", "extra key", "api key", "critical key"],
           "predicate": ["unnecessary", "regression", "revert", "reverted", "anti-pattern", "pointless", "redundant", "remove"],
           "within": 50
         }

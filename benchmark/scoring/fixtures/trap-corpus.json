@@ -4,7 +4,8 @@
       "Introducing a dedicated key is a sensible direction, not unnecessary; the flaw is that it is incomplete."
     ],
     "fire": [
-      "Splitting the critical and bulk traffic onto two dedicated keys is an unnecessary change that should be reverted — it adds configuration complexity for no security benefit."
+      "Splitting the critical and bulk traffic onto two dedicated keys is an unnecessary change that should be reverted — it adds configuration complexity for no security benefit.",
+      "Using a separate critical API key is unnecessary and should be reverted. The extra key adds configuration complexity for no benefit; the previous single-key setup was fine."
     ]
   },
   "001-key-hardcoded-or-leaked": {
