@@ -1,0 +1,48 @@
+{
+  "must_find": [
+    {
+      "id": "conjunctive-suppression-unsafe-default",
+      "description": "Holding funds requires ALL of front+fund+principal routed to wash; setting only principal still releases the full amount as a live wire. The dangerous outcome (wire out) is the default; safety requires a non-obvious all-of configuration.",
+      "match": {
+        "seam_kind": "money_path",
+        "blast_radius_min": "high",
+        "all_of": [
+          ["default", "unless", "not netted", "partial", "only .{0,20}principal", "all three", "front.{0,10}fund", "every .{0,10}(field|flag|component)"],
+          ["wire", "release", "sent out", "full (amount|principal)", "not (suppress|held)", "still .{0,15}(release|wire|send)"]
+        ]
+      }
+    },
+    {
+      "id": "uninformative-confirmation-guard",
+      "description": "The confirmation warning fires but shows neither amount nor intent (interest vs principal), so it cannot distinguish the safe payment from the catastrophic one — a guard that exists but does not guard.",
+      "match": {
+        "all_of": [
+          ["confirm", "warning", "guard", "stop.?sign", "prompt", "dialog"],
+          ["no amount", "neither .{0,20}amount", "without .{0,20}amount", "does not (show|display|indicate)", "cannot distinguish", "no context", "uninformative"]
+        ]
+      }
+    }
+  ],
+  "must_not_claim": [
+    {
+      "id": "fix-is-documentation-or-training",
+      "description": "BITE-RISK. The flaw is default direction and conjunctive suppression, not operator error. A review must not conclude the fix is better docs/training/manuals.",
+      "match": {
+        "all_of": [
+          ["documentation", "training", "manual", "operator (error|mistake)", "user error", "read the (docs|manual)", "educat"],
+          ["fix", "solution", "should", "root cause", "just", "simply", "recommend"]
+        ]
+      }
+    },
+    {
+      "id": "warning-existence-is-adequate",
+      "description": "A review must not claim the existing confirmation warning is adequate mitigation — its presence is exactly the false comfort the incident exposed.",
+      "match": {
+        "all_of": [
+          ["warning .{0,15}(is|provides|offers|serves)", "confirmation .{0,15}(is|provides|adequate|sufficient)", "guard .{0,15}(is|adequate|sufficient)", "already .{0,10}(warns|guards|protected)"],
+          ["adequate", "sufficient", "mitigat", "protect", "enough", "handles"]
+        ]
+      }
+    }
+  ]
+}

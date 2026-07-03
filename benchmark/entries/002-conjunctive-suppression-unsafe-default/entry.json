@@ -1,0 +1,9 @@
+{
+  "id": "002-conjunctive-suppression-unsafe-default",
+  "title": "Conjunctive suppression with an unsafe default on a wire-release path",
+  "seam_kind": "money_path",
+  "difficulty": 2,
+  "source": "postmortem-derived (catalog case 1: In re Citibank, S.D.N.Y. 2021)",
+  "validity": "proposed",
+  "validity_evidence": "Reconstruction of catalog case 1 (default-release-unless-all-suppression-flags-set); primary source In re Citibank August 11, 2020 Wire Transfers, Findings of Fact & Conclusions of Law, No. 20-CV-6539 (Furman, J., S.D.N.Y. Feb. 16, 2021); author attestation."
+}

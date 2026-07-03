@@ -1,0 +1,17 @@
+{
+  "id": "002-conjunctive-suppression-unsafe-default",
+  "kind": "money_path",
+  "label": "runMonthlyInterest() — conjunctive wash-suppression with an unsafe default",
+  "sources": [
+    {
+      "path": "payment.ts"
+    },
+    {
+      "path": "confirm.ts"
+    },
+    {
+      "path": "interestRun.ts"
+    }
+  ],
+  "inputText": "// file: payment.ts\nexport type WashRouting = { front: boolean; fund: boolean; principal: boolean };\n\n// A payment is released as a live outbound wire for the full amount UNLESS all\n// three components are routed to the internal wash account. Routing only some\n// components still releases the full amount as a live wire.\nexport function releasePayment(\n  amountCents: number,\n  routing: WashRouting,\n): { wired: number; toWash: number } {\n  const fullySuppressed = routing.front && routing.fund && routing.principal;\n  if (fullySuppressed) return { wired: 0, toWash: amountCents };\n  // Partial routing: only a fully-washed payment releases nothing. Otherwise the\n  // full amount goes out — the system does not net partial suppression.\n  return { wired: amountCents, toWash: 0 };\n}\n\n// file: confirm.ts\n// Confirmation guard shown before release. It warns that funds leave the bank\n// but shows neither the amount nor whether this is the intended interest payment\n// or the full principal — it cannot distinguish the safe case from the\n// catastrophic one.\nexport function confirmRelease(): boolean {\n  console.warn(\"Account is a Wire Account and funds will be sent out of the bank. Continue?\");\n  return true; // operator clicks through\n}\n\n// file: interestRun.ts\nimport { releasePayment } from \"./payment\";\nimport { confirmRelease } from \"./confirm\";\n\n// Monthly interest run: intends to wire ONLY interest and hold principal in the\n// wash account. Sets principal suppression — but not front or fund.\nexport function runMonthlyInterest(principalCents: number): number {\n  confirmRelease();\n  const { wired } = releasePayment(principalCents, {\n    front: false,\n    fund: false,\n    principal: true, // operator believes this alone holds the principal\n  });\n  return wired; // intended 0; actually the full principal\n}\n"
+}
