@@ -4,6 +4,6 @@
   "seam_kind": "auth",
   "difficulty": 1,
   "source": "postmortem-derived (catalog case 5: First American, KrebsOnSecurity 2019)",
-  "validity": "proposed",
-  "validity_evidence": "Reconstruction of catalog case 5 (enumerable-document-ids); primary source KrebsOnSecurity disclosure, May 2019 (First American Financial); author attestation."
+  "validity": "validated",
+  "validity_evidence": "Reconstruction of catalog case 5 (enumerable-document-ids); primary source KrebsOnSecurity disclosure, May 2019 (First American Financial); author attestation. Trap validation under migrated asserted_claim: review-only run 2026-07-03, engine_commit 514d674, outcome validated (ground_truth_commit 514d674)."
 }

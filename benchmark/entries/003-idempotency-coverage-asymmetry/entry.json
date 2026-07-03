@@ -4,6 +4,6 @@
   "seam_kind": "money_path",
   "difficulty": 2,
   "source": "postmortem-derived (catalog case 3: WooCommerce Stripe Gateway #2339 + Stripe idempotency docs)",
-  "validity": "proposed",
-  "validity_evidence": "Reconstruction of catalog case 3 (idempotency-key-covers-only-one-of-two-charge-paths); primary sources WooCommerce Stripe Gateway issue #2339 and Stripe idempotency documentation; author attestation."
+  "validity": "validated",
+  "validity_evidence": "Reconstruction of catalog case 3 (idempotency-key-covers-only-one-of-two-charge-paths); primary sources WooCommerce Stripe Gateway issue #2339 and Stripe idempotency documentation; author attestation. Trap validation under migrated asserted_claim: review-only run 2026-07-03, engine_commit 514d674, outcome validated (ground_truth_commit 514d674)."
 }
