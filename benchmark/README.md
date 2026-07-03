@@ -47,6 +47,14 @@ included** — the point is to measure recall honestly over time, so `full`
 (whole-pipeline) and `review-only` (judgment-only) runs are reported separately,
 never blended. See [`schema.md`](./schema.md) for the field contract.
 
+## Bait fixtures (excluded from the benchmark)
+
+`bait/` holds **elicitation instruments**: deliberately tempting fixtures used
+to collect real wrong-claim specimens from the tool. They are not benchmark
+entries — no `entry.json`, no `must_find`/`must_not_claim` — and are excluded
+from the benchmark proper and from ANY recall/precision statistic computed over
+entries. No run-all harness may sweep `bait/`. See [`bait/README.md`](./bait/README.md).
+
 ## Publishability
 
 Every fixture must be publishable: **public-postmortem-derived or own-code
