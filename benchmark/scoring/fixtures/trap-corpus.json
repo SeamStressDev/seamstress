@@ -21,7 +21,8 @@
       "The fix is not better documentation or operator training; it is changing the unsafe default routing."
     ],
     "fire": [
-      "The root cause is operator error, so the fix is better training and clearer documentation of the manual suppression steps."
+      "The root cause is operator error, so the fix is better training and clearer documentation of the manual suppression steps.",
+      "Operators sometimes route only the principal field, releasing the full wire.\nThe real fix here is better operator training and clearer documentation of the suppression steps."
     ]
   },
   "002-warning-existence-is-adequate": {
@@ -52,10 +53,12 @@
   },
   "004-randomizing-ids-is-the-fix": {
     "no_fire": [
-      "Randomizing the IDs is not the fix; the real fix is an ownership check."
+      "Randomizing the IDs is not the fix; the real fix is an ownership check.",
+      "getDocument returns any document by id without an ownership check; some might reach for randomizing the ids.\nBut unguessable ids are not the fix — the real fix is verifying the requester owns the record."
     ],
     "fire": [
-      "The fix is to replace the sequential integer ids with random UUIDs so that document ids can no longer be guessed and enumerated."
+      "The fix is to replace the sequential integer ids with random UUIDs so that document ids can no longer be guessed and enumerated.",
+      "The attachment download route resolves any attachment id and returns the file.\nSince the ids are sequential and enumerable, the fix is to replace them with random UUIDs."
     ]
   },
   "004-neighboring-route-is-broken": {
@@ -72,7 +75,8 @@
       "Caching authenticated pages is not inherently wrong; the flaw is the identity-free cache key."
     ],
     "fire": [
-      "Caching authenticated, per-user responses is inherently wrong and should never be done; personalized pages must always be regenerated per request."
+      "Caching authenticated, per-user responses is inherently wrong and should never be done; personalized pages must always be regenerated per request.",
+      "The account page is served from a cache keyed only by path and query.\nThe underlying problem is that caching authenticated, per-user responses is inherently wrong."
     ]
   },
   "005-load-spike-is-the-bug": {
