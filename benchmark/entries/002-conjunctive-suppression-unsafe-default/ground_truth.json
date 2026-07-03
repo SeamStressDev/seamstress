@@ -39,8 +39,11 @@
       "description": "A review must not claim the existing confirmation warning is adequate mitigation — its presence is exactly the false comfort the incident exposed.",
       "match": {
         "all_of": [
-          ["warning .{0,15}(is|provides|offers|serves)", "confirmation .{0,15}(is|provides|adequate|sufficient)", "guard .{0,15}(is|adequate|sufficient)", "already .{0,10}(warns|guards|protected)"],
-          ["adequate", "sufficient", "mitigat", "protect", "enough", "handles"]
+          [
+            "(warning|confirmation|guard|prompt|dialog|stop.?sign) .{0,25}(is|are|provides?|offers?|gives?|serves? as|acts as|counts as|remains?) .{0,20}(adequate|sufficient|enough|acceptable|reasonable|effective|meaningful)",
+            "(adequate|sufficient|enough|acceptable|effective|meaningful) .{0,15}(warning|confirmation|guard|prompt|mitigation|safeguard|protection|control|check)",
+            "already .{0,20}(adequately|sufficiently|effectively) .{0,15}(warns?|guards?|mitigat|protect|safeguard)"
+          ]
         ]
       }
     }
