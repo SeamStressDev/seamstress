@@ -1,0 +1,1 @@
+{"date": "2026-07-03", "engine_commit": "aa020e1", "ground_truth_commit": "ee9e33a", "mode": "review-only", "outcome": "partial", "scorer_summary": "[004-missing-ownership-check-idor] FAIL — 1/1 must_find hit, 0 missed, 1 false positive(s)", "cost_usd": 0.0618}

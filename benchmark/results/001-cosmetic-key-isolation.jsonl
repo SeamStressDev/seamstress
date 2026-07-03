@@ -1,2 +1,2 @@
-{"date": "2026-07-02", "engine_commit": "9ea4d8a", "mode": "full", "outcome": "missed", "scorer_summary": "[001-cosmetic-key-isolation] FAIL — 0/2 must_find hit, 2 missed, 0 false positive(s)", "cost_usd": 0.00}
-{"date": "2026-07-03", "engine_commit": "40efa46", "mode": "review-only", "outcome": "found", "scorer_summary": "[001-cosmetic-key-isolation] PASS — 2/2 must_find hit, 0 missed, 0 false positive(s)", "cost_usd": 0.15}
+{"date": "2026-07-02", "engine_commit": "9ea4d8a", "ground_truth_commit": "865c540", "mode": "full", "outcome": "missed", "scorer_summary": "[001-cosmetic-key-isolation] FAIL — 0/2 must_find hit, 2 missed, 0 false positive(s)", "cost_usd": 0.00}
+{"date": "2026-07-03", "engine_commit": "40efa46", "ground_truth_commit": "865c540", "mode": "review-only", "outcome": "found", "scorer_summary": "[001-cosmetic-key-isolation] PASS — 2/2 must_find hit, 0 missed, 0 false positive(s)", "cost_usd": 0.1539}

@@ -117,12 +117,17 @@ Whether the tool finds an entry — as opposed to whether the entry is valid —
 recorded per run in an **append-only** ledger at `benchmark/results/<entry-id>.jsonl`,
 one JSON object per line:
 
-    { "date": "YYYY-MM-DD", "engine_commit": "<sha>", "mode": "full" | "review-only",
-      "outcome": "found" | "missed" | "partial", "scorer_summary": "<verbatim>",
-      "cost_usd": 0.00 }
+    { "date": "YYYY-MM-DD", "engine_commit": "<sha>", "ground_truth_commit": "<sha>",
+      "mode": "full" | "review-only", "outcome": "found" | "missed" | "partial",
+      "scorer_summary": "<verbatim>", "cost_usd": 0.0000 }
 
 - **`mode`** — `full` runs the whole pipeline (detection → review); `review-only`
   feeds an assembled seam straight to the review pipeline, bypassing detection.
+- **`ground_truth_commit`** (optional) — the commit whose tree holds the
+  ground-truth version that scored this run. Distinct from `engine_commit` when a
+  matcher/trap was fixed between runs of the same entry: a pre-fix run and its
+  post-fix re-run carry different `ground_truth_commit` values, so the
+  ground-truth evolution is traceable structurally, not just in prose.
 - **`outcome`** (from the scorer result):
   - `found` — every `must_find` hit, zero false positives.
   - `partial` — at least one `must_find` hit, or all hit with ≥1 false positive.
