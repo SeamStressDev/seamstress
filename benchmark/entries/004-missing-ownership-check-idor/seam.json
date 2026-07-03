@@ -1,0 +1,14 @@
+{
+  "id": "004-missing-ownership-check-idor",
+  "kind": "auth",
+  "label": "getDocument() — missing ownership check (IDOR)",
+  "sources": [
+    {
+      "path": "documents.ts"
+    },
+    {
+      "path": "invoices.ts"
+    }
+  ],
+  "inputText": "// file: documents.ts\ntype Doc = { id: number; ownerId: string; body: string };\nconst store: Doc[] = [];\n\n// Serves a document if the ID resolves to a real record. No check that the\n// requester owns it. IDs are sequential.\nexport function getDocument(requesterId: string, docId: number): Doc | undefined {\n  void requesterId; // accepted, never used for authorization\n  return store.find((d) => d.id === docId);\n}\n\n// file: invoices.ts\ntype Invoice = { id: number; ownerId: string; amountCents: number };\nconst invoices: Invoice[] = [];\n\n// Neighboring route that DOES scope to the owner — so the absent check in\n// getDocument reads as an omission, not the codebase's house style.\nexport function getInvoice(requesterId: string, invoiceId: number): Invoice | undefined {\n  const inv = invoices.find((i) => i.id === invoiceId);\n  if (!inv || inv.ownerId !== requesterId) return undefined;\n  return inv;\n}\n"
+}

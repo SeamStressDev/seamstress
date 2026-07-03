@@ -1,0 +1,38 @@
+{
+  "must_find": [
+    {
+      "id": "missing-ownership-check-idor",
+      "description": "getDocument returns any document whose ID resolves, without verifying the requester owns it; sequential IDs make the whole set enumerable. Authorization for the object is absent.",
+      "match": {
+        "seam_kind": "auth",
+        "blast_radius_min": "high",
+        "all_of": [
+          ["own(er| ship)", "authoriz", "access control", "requester", "belongs to", "who .{0,10}(may|can) .{0,10}(see|read|access)"],
+          ["not (check|verif|enforc)", "no .{0,10}(check|ownership|authoriz)", "missing", "absent", "any (user|requester|one)", "IDOR", "enumerab", "sequential"]
+        ]
+      }
+    }
+  ],
+  "must_not_claim": [
+    {
+      "id": "randomizing-ids-is-the-fix",
+      "description": "BITE-RISK. Unguessable IDs are mitigation, not authorization. A review must not present randomizing/UUID-ing the IDs as the fix for the missing ownership check.",
+      "match": {
+        "all_of": [
+          ["random", "uuid", "unguessab", "non-?sequential", "opaque .{0,10}id", "hard to guess"],
+          ["fix", "solution", "should .{0,10}(use|be|make)", "instead of", "replace .{0,10}id", "recommend", "just .{0,10}(use|make)"]
+        ]
+      }
+    },
+    {
+      "id": "neighboring-route-is-broken",
+      "description": "getInvoice correctly scopes to the owner. A review must not flag the invoice route as the defect.",
+      "match": {
+        "all_of": [
+          ["getInvoice", "invoice .{0,10}(route|path|endpoint|function)"],
+          ["broken", "defect", "vulnerab", "missing .{0,10}check", "flaw", "insecure", "IDOR"]
+        ]
+      }
+    }
+  ]
+}

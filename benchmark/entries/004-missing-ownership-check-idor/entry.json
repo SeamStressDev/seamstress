@@ -1,0 +1,9 @@
+{
+  "id": "004-missing-ownership-check-idor",
+  "title": "Missing ownership check on a document-fetch route (IDOR)",
+  "seam_kind": "auth",
+  "difficulty": 1,
+  "source": "postmortem-derived (catalog case 5: First American, KrebsOnSecurity 2019)",
+  "validity": "proposed",
+  "validity_evidence": "Reconstruction of catalog case 5 (enumerable-document-ids); primary source KrebsOnSecurity disclosure, May 2019 (First American Financial); author attestation."
+}
