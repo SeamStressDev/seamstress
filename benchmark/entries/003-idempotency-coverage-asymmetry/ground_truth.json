@@ -8,7 +8,7 @@
         "blast_radius_min": "high",
         "all_of": [
           ["idempoten", "retry.?key", "dedup"],
-          ["one .{0,15}path", "only .{0,15}(the )?(legacy|charges)", "not .{0,15}(the )?(intent|payment.?intent)", "second .{0,10}path", "asymmetr", "missing on", "one of (the )?two", "not both"],
+          ["one .{0,15}path", "only .{0,15}(the )?(legacy|charges)", "not .{0,15}(the )?(intent|payment.?intent)", "second .{0,10}path", "asymmetr", "missing on", "one of (the )?two", "not both", "(charges|legacy).{0,250}(payment.?intent|intent path|chargeviaintent)", "chargeviaintent.{0,250}(chargevialegacy|legacy path|charges path)", "(passes|attaches|has|includes|generates?|sets?) .{0,30}(idempoten|key).{0,220}(no|without|missing|lacks) .{0,25}(idempoten|key|opts)", "(no|without|missing|lacks) .{0,25}(idempoten|key|opts).{0,220}(passes|attaches|has|includes|generates?|sets?) .{0,30}(idempoten|key)"],
           ["retry", "retried", "re-?fire", "duplicate", "double.?charg", "charged .{0,10}(twice|again|multiple)"]
         ]
       }
@@ -30,7 +30,12 @@
       "description": "Idempotency is not absent everywhere — it exists on one path. A review claiming there is no idempotency at all has misread the coverage-asymmetry mechanism.",
       "match": {
         "all_of": [
-          ["no idempoten", "idempoten.{0,20}(missing|absent) .{0,15}(entirely|everywhere|at all|throughout)", "lacks idempoten", "without .{0,10}idempoten.{0,20}(anywhere|at all)", "never .{0,10}idempoten"]
+          [
+            "no idempoten.{0,30}(anywhere|at all|entirely|whatsoever|throughout|across .{0,15}(the )?code)",
+            "idempoten.{0,20}(missing|absent).{0,15}(entirely|everywhere|at all|throughout)",
+            "(lacks|without|has no) .{0,15}idempoten.{0,25}(anywhere|at all|entirely|throughout|whatsoever)",
+            "no .{0,15}(idempoten|dedup).{0,20}(anywhere|at all|entirely|in (the|this) (code|system))"
+          ]
         ]
       }
     }
