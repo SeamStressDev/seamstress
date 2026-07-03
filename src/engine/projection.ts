@@ -26,7 +26,7 @@
  * not recompute anything or touch the other renderers' output.
  */
 
-import type { Finding, SeamKind, VerificationResult } from "../types/index.js";
+import type { Finding, ReviewResult, SeamKind, VerificationResult } from "../types/index.js";
 import type { SeamMap } from "./map.js";
 
 /** The projection shape (mirrors the benchmark's FindingsProjection contract). */
@@ -42,5 +42,18 @@ export function projectSeamMap(map: SeamMap): FindingsProjection {
     seams: map.seams.map((s) => ({ id: s.id, kind: s.kind })),
     findings: map.review.findings,
     verifications: map.review.verifications,
+  };
+}
+
+/**
+ * Project a single-seam {@link ReviewResult} (a review-only run, detection
+ * bypassed) to the same shape. The result already carries the reviewed seam in
+ * `seams`, so kind resolution works identically to the full-map path.
+ */
+export function projectReview(result: ReviewResult): FindingsProjection {
+  return {
+    seams: result.seams.map((s) => ({ id: s.id, kind: s.kind })),
+    findings: result.findings,
+    verifications: result.verifications,
   };
 }

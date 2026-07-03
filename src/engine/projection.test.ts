@@ -24,9 +24,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { projectSeamMap } from "./projection.js";
+import { projectReview, projectSeamMap } from "./projection.js";
 import type { SeamMap } from "./map.js";
-import type { Cost, Finding, Seam, VerificationResult } from "../types/index.js";
+import type { Cost, Finding, ReviewResult, Seam, VerificationResult } from "../types/index.js";
 import { scoreEntry } from "../../benchmark/scoring/score.js";
 import type { GroundTruth } from "../../benchmark/scoring/score.js";
 
@@ -138,5 +138,32 @@ describe("projectSeamMap — the --json emitter", () => {
     expect(score.hits[0]?.statuses).toContain("verified_real");
     expect(score.falsePositives).toEqual([]);
     expect(score.passed).toBe(false); // one miss → not a pass
+  });
+});
+
+describe("projectReview — the review-only emitter", () => {
+  const result: ReviewResult = {
+    target: { repo: "fixture", commit: "test" },
+    seams: [seam],
+    findings,
+    verifications,
+    usages: [],
+    cost: ZERO_COST,
+    synthesis: "s",
+  };
+  const projection = projectReview(result);
+
+  it("projects the review's seams to { id, kind } only", () => {
+    expect(projection.seams).toEqual([{ id: "seam-1", kind: "safety_delivery" }]);
+    expect(projection.seams[0]).not.toHaveProperty("inputText");
+  });
+
+  it("passes the review's findings and verifications through unchanged", () => {
+    expect(projection.findings).toEqual(findings);
+    expect(projection.verifications).toEqual(verifications);
+  });
+
+  it("produces the same shape as projectSeamMap for the same seam/findings", () => {
+    expect(projection).toEqual(projectSeamMap(map));
   });
 });

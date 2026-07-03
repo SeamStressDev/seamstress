@@ -26,17 +26,23 @@
  * Usage (needs a real key in .env):
  *   npm run review                                    # default Resend fixture
  *   npm run review -- fixtures/resend-critical-email.seam.json
+ *   npm run review -- path/to.seam.json --json projection.json   # emit scorer projection
  */
 
-import { readFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { reportFatal } from "./cli.js";
-import { reviewSeam } from "./engine/index.js";
+import { projectReview, reviewSeam } from "./engine/index.js";
 import { loadEnvFile } from "./env.js";
 import { LlmClient } from "./llm/index.js";
 import { effectiveStatus, SeamSchema } from "./types/index.js";
 import type { ReviewResult } from "./types/index.js";
 
 const DEFAULT_FIXTURE = "fixtures/resend-critical-email.seam.json";
+
+function flagValue(flag: string): string | undefined {
+  const i = process.argv.indexOf(flag);
+  return i !== -1 ? process.argv[i + 1] : undefined;
+}
 
 function printResult(result: ReviewResult): void {
   const { findings, verifications, cost } = result;
@@ -98,6 +104,12 @@ async function main(): Promise<void> {
   });
 
   printResult(result);
+
+  const jsonOut = flagValue("--json");
+  if (jsonOut) {
+    writeFileSync(jsonOut, JSON.stringify(projectReview(result), null, 2) + "\n");
+    console.error(`Findings projection written to ${jsonOut}`);
+  }
 }
 
 main().catch((err: unknown) => {

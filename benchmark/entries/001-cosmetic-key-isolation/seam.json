@@ -1,0 +1,17 @@
+{
+  "id": "001-cosmetic-key-isolation",
+  "kind": "safety_delivery",
+  "label": "sendCriticalAlert() — cosmetic key isolation on a critical-alert email path",
+  "sources": [
+    {
+      "path": "config.ts"
+    },
+    {
+      "path": "mailer.ts"
+    },
+    {
+      "path": "notifications.ts"
+    }
+  ],
+  "inputText": "// file: config.ts\nfunction requireEnv(name: string): string {\n  const value = process.env[name];\n  if (!value) throw new Error(`Missing required env var: ${name}`);\n  return value;\n}\n\n// Bulk and critical email were split onto two API keys so the two traffic\n// streams are distinguishable in the provider dashboard. Both keys are issued\n// under the same provider account (account id \"acct_7fb2\").\nexport const BULK_KEY = requireEnv(\"MAIL_BULK_KEY\");\nexport const CRITICAL_KEY = requireEnv(\"MAIL_CRITICAL_KEY\");\nexport const PROVIDER_ACCOUNT = \"acct_7fb2\";\n\n// file: mailer.ts\n// Minimal stand-in for a transactional-email SDK (Postmark/Resend-style).\nclass MailProvider {\n  constructor(private readonly apiKey: string) {}\n  async send(msg: { to: string; subject: string; body: string }): Promise<void> {\n    // A real SDK performs the HTTP call here; the provider throws a 429 when it\n    // rejects a request for exceeding limits.\n    void this.apiKey;\n    void msg;\n  }\n}\n\nexport interface SendResult {\n  sent: boolean;\n}\n\n/**\n * Send one email with the given API key. A 429 (\"too many requests\") from the\n * provider is treated as a soft failure — we return { sent: false } instead of\n * throwing, so a single send can never crash the caller.\n */\nexport async function sendEmail(\n  apiKey: string,\n  to: string,\n  subject: string,\n  body: string,\n): Promise<SendResult> {\n  const provider = new MailProvider(apiKey);\n  try {\n    await provider.send({ to, subject, body });\n    return { sent: true };\n  } catch (err) {\n    const status = (err as { status?: number }).status;\n    if (status === 429) return { sent: false };\n    return { sent: false };\n  }\n}\n\n// file: notifications.ts\nimport { sendEmail } from \"./mailer\";\nimport { BULK_KEY, CRITICAL_KEY } from \"./config\";\n\n/**\n * Nightly marketing digest to the entire user base — potentially tens of\n * thousands of sends in a tight loop, all on the bulk key.\n */\nexport async function sendNightlyDigest(recipients: string[], html: string): Promise<void> {\n  for (const to of recipients) {\n    await sendEmail(BULK_KEY, to, \"Your daily digest\", html);\n  }\n}\n\n/**\n * A critical security alert (e.g. an account-takeover warning) that MUST reach\n * the recipient. Moved onto a dedicated key to keep it off the bulk stream.\n */\nexport async function sendCriticalAlert(to: string, subject: string, body: string): Promise<void> {\n  const result = await sendEmail(CRITICAL_KEY, to, subject, body);\n  if (!result.sent) {\n    // Best effort: note it and move on.\n    console.warn(`[alert] critical alert to ${to} was not delivered`);\n  }\n}\n"
+}

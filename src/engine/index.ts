@@ -37,7 +37,7 @@ export type {
   ErroredSeam,
 } from "./map.js";
 export { renderSeamMap, renderSeamMapHtml, renderCostSummary } from "./report.js";
-export { projectSeamMap } from "./projection.js";
+export { projectSeamMap, projectReview } from "./projection.js";
 export type { FindingsProjection } from "./projection.js";
 export { mapWithConcurrency, DEFAULT_REVIEW_CONCURRENCY } from "./concurrency.js";
 export { sourceFileStats } from "./heuristic.js";

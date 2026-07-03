@@ -99,3 +99,51 @@ describe("scoreEntry — ground-truth validation", () => {
     expect(r.passed).toBe(true);
   });
 });
+
+describe("scoreEntry — review-only projection shape (dry-scoring, $0, no API)", () => {
+  // Shaped exactly as the review runner's projectReview() emits: a single seam
+  // (id = the seam.json id, kind safety_delivery) plus findings/verifications.
+  // Proves the review-only projection is scorer-compatible BEFORE any spend —
+  // an incompatibility would otherwise surface only after the API money is gone.
+  const reviewOnlyProjection: FindingsProjection = {
+    seams: [{ id: "001-cosmetic-key-isolation", kind: "safety_delivery" }],
+    findings: [
+      {
+        id: "001-cosmetic-key-isolation:f1",
+        seamId: "001-cosmetic-key-isolation",
+        description: "The dedicated critical-alert key shares the same provider account (acct_7fb2) as the bulk key.",
+        blastRadius: "high",
+        reasoning: "Both keys sit under one account and share its per-account send quota; the isolation between bulk and critical is cosmetic.",
+      },
+      {
+        id: "001-cosmetic-key-isolation:f2",
+        seamId: "001-cosmetic-key-isolation",
+        description: "The critical alert can silently fail to deliver under bulk load.",
+        blastRadius: "critical",
+        reasoning: "The 429 is swallowed and sendCriticalAlert only logs, so a critical security alert is lost.",
+      },
+    ],
+    verifications: [
+      {
+        findingId: "001-cosmetic-key-isolation:f2",
+        status: "verified_real",
+        evidence: [{ quotedCode: "if (!result.sent) { console.warn(...) }", location: { path: "notifications.ts", startLine: 20 } }],
+        note: "Confirmed against the seam.",
+      },
+    ],
+  };
+
+  it("scores a review-only-shaped projection against entry 001's real ground truth to a known outcome", () => {
+    const r = scoreEntry(ENTRY, reviewOnlyProjection, groundTruth);
+    // Known outcome: both must_find hit, no false positives → PASS (the shape a
+    // successful review-only run would produce). This is a shape-compat proof,
+    // NOT a prediction about the real run.
+    expect(r.hits.map((h) => h.itemId).sort()).toEqual([
+      "shared-quota-cosmetic-isolation",
+      "silent-critical-delivery-failure",
+    ]);
+    expect(r.misses).toEqual([]);
+    expect(r.falsePositives).toEqual([]);
+    expect(r.passed).toBe(true);
+  });
+});
