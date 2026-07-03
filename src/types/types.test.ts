@@ -72,6 +72,12 @@ describe("SeamSchema", () => {
     );
   });
 
+  it("accepts the tenant_isolation kind", () => {
+    expect(SeamSchema.parse({ ...validSeam, kind: "tenant_isolation" }).kind).toBe(
+      "tenant_isolation",
+    );
+  });
+
   it("rejects an empty sources array", () => {
     expect(SeamSchema.safeParse({ ...validSeam, sources: [] }).success).toBe(
       false,

@@ -57,6 +57,7 @@ const KIND_LABEL: Record<SeamKind, string> = {
   pii: "Personal data",
   data_deletion: "Data deletion",
   safety_delivery: "Critical delivery",
+  tenant_isolation: "Cross-tenant data",
   other: "High-risk logic",
 };
 

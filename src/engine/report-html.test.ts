@@ -118,6 +118,17 @@ describe("renderSeamMapHtml — headline kind tag reflects the real seam kind", 
     expect(html).toContain("Login &amp; access control"); // the real kind label (escaped)
     expect(html).not.toContain("money-path"); // the hardcoded mock prefix must be gone
   });
+
+  it("labels a tenant_isolation headline with its 'Cross-tenant data' kind label", () => {
+    const tenantSeam: Seam = { ...seam, kind: "tenant_isolation", label: "cache/accountPage.ts" };
+    const map = mapFrom([{ desc: "account page cached without user in the key", blast: "high", verified: true }]);
+    map.seams = [tenantSeam];
+    map.review.seams = [tenantSeam];
+
+    const html = renderSeamMapHtml(map);
+
+    expect(html).toContain("Cross-tenant data");
+  });
 });
 
 describe("renderSeamMapHtml — logic pins", () => {

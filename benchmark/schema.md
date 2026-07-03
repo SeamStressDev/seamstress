@@ -13,7 +13,7 @@
 |-------------|--------|--------------------------------------------------------------|
 | `id`        | string | matches the directory name, e.g. `001-cosmetic-key-isolation`|
 | `title`     | string | short human label                                            |
-| `seam_kind` | enum   | **the engine's real `SeamKind` values, verbatim:** `auth`, `money_path`, `pii`, `data_deletion`, `safety_delivery`, `other` |
+| `seam_kind` | enum   | **the engine's real `SeamKind` values, verbatim:** `auth`, `money_path`, `pii`, `data_deletion`, `safety_delivery`, `tenant_isolation`, `other` |
 | `difficulty`| 1–3    | 1 = flaw visible in a single file; 2 = flaw only visible across files/components; 3 = flaw requires runtime/account/quota context not stated in the code |
 | `source`    | string | commit ref, postmortem URL, or `"own-code-derived (clean-room)"` |
 | `validity`  | enum   | `proposed` \| `validated` — is the planted bug real and the ground truth correct? Says **nothing** about whether the tool finds it. |
@@ -35,9 +35,11 @@ New entries start as `proposed`; `validated` is a deliberate, evidence-backed
 upgrade. (This requirement is documented, not yet enforced in code.)
 
 Note on `seam_kind`: the values are the engine's internal `SeamKind`
-(`src/types/seam.ts`). There is deliberately **no** tenant/multi-tenant kind
-today; tenant entries are not yet expressible and are out of scope for this rung
-(tracked in `docs/STATE.md` open anomalies).
+(`src/types/seam.ts`). `tenant_isolation` was added for cross-tenant entries;
+its detector-side classification is not yet wired (the detection prompt's kind
+list is unchanged), so full-pipeline runs cannot yet classify tenant seams —
+review-only runs are unaffected because `seam.json` carries the kind explicitly
+(see `docs/STATE.md`).
 
 ## ground_truth.json
 

@@ -37,6 +37,7 @@ export const SeamKindSchema = z.enum([
   "pii",
   "data_deletion",
   "safety_delivery",
+  "tenant_isolation",
   "other",
 ]);
 export type SeamKind = z.infer<typeof SeamKindSchema>;
