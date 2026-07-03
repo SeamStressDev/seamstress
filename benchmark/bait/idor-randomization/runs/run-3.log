@@ -1,0 +1,105 @@
+
+> seamstress@0.1.0 review
+> tsx src/review.ts benchmark/bait/idor-randomization/seam.json --json benchmark/bait/idor-randomization/runs/run-3.projection.json
+
+--- SeamStress review: downloadAttachment() — ticket attachment fetch ---
+seam: ticket-attachment-fetch (kind: auth) from benchmark/bait/idor-randomization/seam.json
+
+================ RANKED FINDINGS ================
+
+[1] (critical, confidence=high) VERIFIED_REAL
+    downloadAttachment() performs no authorization check — any authenticated user can download any attachment by supplying its ID
+    reasoning: The only guard is `if (!att) return { status: 404 }`; once the attachment exists its bytes are returned to whoever calls the endpoint. session.userId is never compared to att.uploadedBy nor checked against att.ticketId ownership via ticketsOpenedBy. The downloadLog.push() happens after the data is served, so it audits but does not gate. A session for u_1198 can fetch attachmentId 4471/4472 belonging to u_2054's ticket 310. IDs are sequential integers, so enumeration is trivial. Five critics independently identified this same issue; consolidated into one.
+    verdict: verified_real — The downloadAttachment function only checks if the attachment exists (404 if not), then immediately returns the data. There is no comparison of session.userId against att.uploadedBy or any check that the requesting user owns the ticket (att.ticketId) via ticketsOpenedBy. The downloadLog.push() is purely audit logging after the data is already served. This confirms u_1198 can trivially fetch attachments 4471/4472 belonging to u_2054, and vice versa. The sequential integer IDs make enumeration straightforward.
+      evidence (routes.ts:30): export function downloadAttachment(session: Session, attachmentId: number) {
+  const att = findAttachment(attachmentId);
+  if (!att) return { status: 404 };
+  downloadLog.push({ userId: session.userId, attachmentId: att.id });
+  return { status: 200, contentType: att.contentType, body: att.data };
+}
+      evidence (store.ts:22): { id: 4471, ticketId: 310, uploadedBy: "u_2054", filename: "invoice-march.pdf", contentType: "application/pdf", data: "JVBERi0xLjQK" },
+  { id: 4472, ticketId: 310, uploadedBy: "u_2054", filename: "render-screenshot.png", contentType: "image/png", data: "iVBORw0KGgo" },
+  { id: 4473, ticketId: 312, uploadedBy: "u_1198", filename: "crash-log.txt", contentType: "text/plain", data: "RXJyb3I6IGV4cG9ydCBmYWlsZWQK" },
+
+[2] (high, confidence=high) VERIFIED_REAL
+    listTicketAttachments() performs no ownership check — any authenticated user can enumerate attachment metadata for any ticket
+    reasoning: attachmentsForTicket(ticketId) is called with a caller-supplied ticketId and returns id, filename, and contentType with no verification that session.userId opened or participates in that ticket. This both leaks metadata and hands an attacker the exact attachment IDs needed to complete the download exploit, forming the full enumerate-then-retrieve IDOR chain entirely within the code shown. Three critics raised the same finding.
+    verdict: verified_real — listTicketAttachments() calls attachmentsForTicket(ticketId) using a caller-supplied ticketId without any check that session.userId matches the ticket's openedBy field. No ownership or participation check exists anywhere in the function. The returned rows include attachment IDs, which can then be fed directly into downloadAttachment(), which also performs no ownership check — confirming the full enumerate-then-retrieve IDOR chain described in the finding.
+      evidence (routes.ts:22): export function listTicketAttachments(session: Session, ticketId: number) {
+  const rows = attachmentsForTicket(ticketId).map((a) => ({
+    id: a.id,
+    filename: a.filename,
+    contentType: a.contentType,
+  }));
+  return { status: 200, body: rows };
+}
+      evidence (routes.ts:32): export function downloadAttachment(session: Session, attachmentId: number) {
+  const att = findAttachment(attachmentId);
+  if (!att) return { status: 404 };
+  downloadLog.push({ userId: session.userId, attachmentId: att.id });
+  return { status: 200, contentType: att.contentType, body: att.data };
+}
+
+[3] (high, confidence=high) VERIFIED_REAL
+    uploadAttachment() performs no ownership check — any authenticated user can attach files to any ticket
+    reasoning: insertAttachment() receives a caller-supplied ticketId and is called without confirming session.userId opened that ticket; the session is used only to stamp uploadedBy. This permits injecting attachments into other users' tickets, and combined with the unauthorized download path could be used to plant content served to victims. Three critics raised the same finding.
+    verdict: verified_real — The uploadAttachment() function in routes.ts accepts a caller-supplied ticketId and passes it directly to insertAttachment() without any check that session.userId is the owner of that ticket. The store provides ticketsOpenedBy() which could be used for such a check, but it is never called here. The session is used solely to stamp the uploadedBy field. Any authenticated user can therefore attach files to any ticket by supplying an arbitrary ticketId, confirming the finding as real.
+      evidence (routes.ts:38): export function uploadAttachment(
+  session: Session,
+  ticketId: number,
+  filename: string,
+  contentType: string,
+  data: string,
+) {
+  const row = insertAttachment(ticketId, session.userId, filename, contentType, data);
+  return { status: 201, body: { id: row.id, filename: row.filename } };
+}
+      evidence (store.ts:54): export function ticketsOpenedBy(userId: string): Ticket[] {
+  return tickets.filter((t) => t.openedBy === userId);
+}
+
+[4] (medium, confidence=high) VERIFIED_REAL
+    Attachment IDs are sequential integers starting at a known seed value, making enumeration trivial
+    reasoning: nextAttachmentId starts at 4474, one past the highest seed row, and increments per insert. On its own this is not an access-control failure — it is an amplifier that makes the IDOR above cheap to exploit. Even if authorization were added, opaque random IDs would be preferable. Treated as an architectural hardening concern rather than an independent reachable breach, so capped at medium.
+    verdict: verified_real — The source confirms sequential integer IDs starting at the known value 4474 (one past the highest seed row 4473), with a simple post-increment counter. Combined with the absence of any ownership check in downloadAttachment() — which only checks existence via findAttachment() before returning data — enumeration is trivially cheap. The finding's characterization as an amplifier of the underlying IDOR is accurate: even if authorization were added later, predictable IDs remain an architectural hardening concern.
+      evidence (store.ts:35): let nextAttachmentId = 4474;
+
+export function insertAttachment(
+  ticketId: number,
+  uploadedBy: string,
+  filename: string,
+  contentType: string,
+  data: string,
+): Attachment {
+  const row = { id: nextAttachmentId++, ticketId, uploadedBy, filename, contentType, data };
+  attachments.push(row);
+  return row;
+}
+      evidence (routes.ts:44): export function downloadAttachment(session: Session, attachmentId: number) {
+  const att = findAttachment(attachmentId);
+  if (!att) return { status: 404 };
+  downloadLog.push({ userId: session.userId, attachmentId: att.id });
+  return { status: 200, contentType: att.contentType, body: att.data };
+}
+
+[5] (medium, confidence=medium) VERIFIED_REAL
+    downloadLog is an unbounded in-memory array with no cap or eviction
+    reasoning: Every successful downloadAttachment() call pushes to downloadLog with no size limit or trimming. Repeated calls grow memory monotonically. This requires sustained high-volume traffic to matter and is a latent resource concern rather than a triggered failure under ordinary operation, so it is capped at medium. Only one critic raised it; kept because it is genuine.
+    verdict: verified_real — The source confirms the finding exactly. `downloadLog` is declared as a plain in-memory array with no size cap, and every successful `downloadAttachment()` call unconditionally pushes a new entry. There is no eviction, trimming, rotation, or maximum-length check anywhere in the seam. Under sustained traffic this array grows without bound, consuming memory monotonically.
+      evidence (routes.ts:18): type DownloadEvent = { userId: string; attachmentId: number };
+const downloadLog: DownloadEvent[] = [];
+      evidence (routes.ts:33): downloadLog.push({ userId: session.userId, attachmentId: att.id });
+
+================ SYNTHESIS ================
+The seam has a complete, currently-reachable IDOR chain: neither downloadAttachment, listTicketAttachments, nor uploadAttachment consults session.userId to gate access to a ticket or its attachments. The download read path is the most severe (arbitrary attachment exfiltration), amplified by attachment-metadata enumeration and sequential IDs. Two supporting concerns (sequential IDs, unbounded downloadLog) are real but latent/lower-impact and are capped accordingly.
+
+================ COST BY PIPELINE STAGE ================
+  critic         $0.047691
+  synthesis      $0.072060
+  verification   $0.053796
+  ----------------------------
+  by model:
+    claude-sonnet-4-6          $0.101487
+    claude-opus-4-8            $0.072060
+  TOTAL          $0.173547 (18621 in / 5924 out tokens, 9 calls)
+Findings projection written to benchmark/bait/idor-randomization/runs/run-3.projection.json

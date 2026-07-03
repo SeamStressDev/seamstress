@@ -1,0 +1,202 @@
+{
+  "seams": [
+    {
+      "id": "ticket-attachment-fetch",
+      "kind": "auth"
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-1",
+      "seamId": "ticket-attachment-fetch",
+      "description": "downloadAttachment() performs no authorization check — any authenticated user can download any attachment by supplying its ID",
+      "reasoning": "The only guard is `if (!att) return { status: 404 }`; once the attachment exists its bytes are returned to whoever calls the endpoint. session.userId is never compared to att.uploadedBy nor checked against att.ticketId ownership via ticketsOpenedBy. The downloadLog.push() happens after the data is served, so it audits but does not gate. A session for u_1198 can fetch attachmentId 4471/4472 belonging to u_2054's ticket 310. IDs are sequential integers, so enumeration is trivial. Five critics independently identified this same issue; consolidated into one.",
+      "blastRadius": "critical",
+      "confidence": "high",
+      "consequence": "Any logged-in user can read every other user's ticket attachments — invoices, screenshots, crash logs — just by iterating attachment ID numbers.",
+      "locations": [
+        {
+          "path": "routes.ts",
+          "startLine": 30,
+          "endLine": 36
+        }
+      ]
+    },
+    {
+      "id": "finding-2",
+      "seamId": "ticket-attachment-fetch",
+      "description": "listTicketAttachments() performs no ownership check — any authenticated user can enumerate attachment metadata for any ticket",
+      "reasoning": "attachmentsForTicket(ticketId) is called with a caller-supplied ticketId and returns id, filename, and contentType with no verification that session.userId opened or participates in that ticket. This both leaks metadata and hands an attacker the exact attachment IDs needed to complete the download exploit, forming the full enumerate-then-retrieve IDOR chain entirely within the code shown. Three critics raised the same finding.",
+      "blastRadius": "high",
+      "confidence": "high",
+      "consequence": "Any logged-in user can see the filenames and file types of every other user's ticket attachments and obtain the exact IDs to download them.",
+      "locations": [
+        {
+          "path": "routes.ts",
+          "startLine": 22,
+          "endLine": 29
+        }
+      ]
+    },
+    {
+      "id": "finding-3",
+      "seamId": "ticket-attachment-fetch",
+      "description": "uploadAttachment() performs no ownership check — any authenticated user can attach files to any ticket",
+      "reasoning": "insertAttachment() receives a caller-supplied ticketId and is called without confirming session.userId opened that ticket; the session is used only to stamp uploadedBy. This permits injecting attachments into other users' tickets, and combined with the unauthorized download path could be used to plant content served to victims. Three critics raised the same finding.",
+      "blastRadius": "high",
+      "confidence": "high",
+      "consequence": "Any logged-in user can attach arbitrary files to someone else's support ticket, polluting that ticket with content they never uploaded.",
+      "locations": [
+        {
+          "path": "routes.ts",
+          "startLine": 38,
+          "endLine": 48
+        }
+      ]
+    },
+    {
+      "id": "finding-4",
+      "seamId": "ticket-attachment-fetch",
+      "description": "Attachment IDs are sequential integers starting at a known seed value, making enumeration trivial",
+      "reasoning": "nextAttachmentId starts at 4474, one past the highest seed row, and increments per insert. On its own this is not an access-control failure — it is an amplifier that makes the IDOR above cheap to exploit. Even if authorization were added, opaque random IDs would be preferable. Treated as an architectural hardening concern rather than an independent reachable breach, so capped at medium.",
+      "blastRadius": "medium",
+      "confidence": "high",
+      "consequence": "An attacker does not need to guess — they can walk attachment IDs in order, making mass exfiltration through the download bug fast and complete.",
+      "locations": [
+        {
+          "path": "store.ts",
+          "startLine": 35,
+          "endLine": 44
+        }
+      ]
+    },
+    {
+      "id": "finding-5",
+      "seamId": "ticket-attachment-fetch",
+      "description": "downloadLog is an unbounded in-memory array with no cap or eviction",
+      "reasoning": "Every successful downloadAttachment() call pushes to downloadLog with no size limit or trimming. Repeated calls grow memory monotonically. This requires sustained high-volume traffic to matter and is a latent resource concern rather than a triggered failure under ordinary operation, so it is capped at medium. Only one critic raised it; kept because it is genuine.",
+      "blastRadius": "medium",
+      "confidence": "medium",
+      "consequence": "Under a flood of download requests the log array grows without bound and can eventually exhaust memory and crash the process.",
+      "locations": [
+        {
+          "path": "routes.ts",
+          "startLine": 18,
+          "endLine": 19
+        },
+        {
+          "path": "routes.ts",
+          "startLine": 33,
+          "endLine": 33
+        }
+      ]
+    }
+  ],
+  "verifications": [
+    {
+      "findingId": "finding-1",
+      "status": "verified_real",
+      "evidence": [
+        {
+          "quotedCode": "export function downloadAttachment(session: Session, attachmentId: number) {\n  const att = findAttachment(attachmentId);\n  if (!att) return { status: 404 };\n  downloadLog.push({ userId: session.userId, attachmentId: att.id });\n  return { status: 200, contentType: att.contentType, body: att.data };\n}",
+          "location": {
+            "path": "routes.ts",
+            "startLine": 30
+          }
+        },
+        {
+          "quotedCode": "{ id: 4471, ticketId: 310, uploadedBy: \"u_2054\", filename: \"invoice-march.pdf\", contentType: \"application/pdf\", data: \"JVBERi0xLjQK\" },\n  { id: 4472, ticketId: 310, uploadedBy: \"u_2054\", filename: \"render-screenshot.png\", contentType: \"image/png\", data: \"iVBORw0KGgo\" },\n  { id: 4473, ticketId: 312, uploadedBy: \"u_1198\", filename: \"crash-log.txt\", contentType: \"text/plain\", data: \"RXJyb3I6IGV4cG9ydCBmYWlsZWQK\" },",
+          "location": {
+            "path": "store.ts",
+            "startLine": 22
+          }
+        }
+      ],
+      "note": "The downloadAttachment function only checks if the attachment exists (404 if not), then immediately returns the data. There is no comparison of session.userId against att.uploadedBy or any check that the requesting user owns the ticket (att.ticketId) via ticketsOpenedBy. The downloadLog.push() is purely audit logging after the data is already served. This confirms u_1198 can trivially fetch attachments 4471/4472 belonging to u_2054, and vice versa. The sequential integer IDs make enumeration straightforward."
+    },
+    {
+      "findingId": "finding-2",
+      "status": "verified_real",
+      "evidence": [
+        {
+          "quotedCode": "export function listTicketAttachments(session: Session, ticketId: number) {\n  const rows = attachmentsForTicket(ticketId).map((a) => ({\n    id: a.id,\n    filename: a.filename,\n    contentType: a.contentType,\n  }));\n  return { status: 200, body: rows };\n}",
+          "location": {
+            "path": "routes.ts",
+            "startLine": 22
+          }
+        },
+        {
+          "quotedCode": "export function downloadAttachment(session: Session, attachmentId: number) {\n  const att = findAttachment(attachmentId);\n  if (!att) return { status: 404 };\n  downloadLog.push({ userId: session.userId, attachmentId: att.id });\n  return { status: 200, contentType: att.contentType, body: att.data };\n}",
+          "location": {
+            "path": "routes.ts",
+            "startLine": 32
+          }
+        }
+      ],
+      "note": "listTicketAttachments() calls attachmentsForTicket(ticketId) using a caller-supplied ticketId without any check that session.userId matches the ticket's openedBy field. No ownership or participation check exists anywhere in the function. The returned rows include attachment IDs, which can then be fed directly into downloadAttachment(), which also performs no ownership check — confirming the full enumerate-then-retrieve IDOR chain described in the finding."
+    },
+    {
+      "findingId": "finding-3",
+      "status": "verified_real",
+      "evidence": [
+        {
+          "quotedCode": "export function uploadAttachment(\n  session: Session,\n  ticketId: number,\n  filename: string,\n  contentType: string,\n  data: string,\n) {\n  const row = insertAttachment(ticketId, session.userId, filename, contentType, data);\n  return { status: 201, body: { id: row.id, filename: row.filename } };\n}",
+          "location": {
+            "path": "routes.ts",
+            "startLine": 38
+          }
+        },
+        {
+          "quotedCode": "export function ticketsOpenedBy(userId: string): Ticket[] {\n  return tickets.filter((t) => t.openedBy === userId);\n}",
+          "location": {
+            "path": "store.ts",
+            "startLine": 54
+          }
+        }
+      ],
+      "note": "The uploadAttachment() function in routes.ts accepts a caller-supplied ticketId and passes it directly to insertAttachment() without any check that session.userId is the owner of that ticket. The store provides ticketsOpenedBy() which could be used for such a check, but it is never called here. The session is used solely to stamp the uploadedBy field. Any authenticated user can therefore attach files to any ticket by supplying an arbitrary ticketId, confirming the finding as real."
+    },
+    {
+      "findingId": "finding-4",
+      "status": "verified_real",
+      "evidence": [
+        {
+          "quotedCode": "let nextAttachmentId = 4474;\n\nexport function insertAttachment(\n  ticketId: number,\n  uploadedBy: string,\n  filename: string,\n  contentType: string,\n  data: string,\n): Attachment {\n  const row = { id: nextAttachmentId++, ticketId, uploadedBy, filename, contentType, data };\n  attachments.push(row);\n  return row;\n}",
+          "location": {
+            "path": "store.ts",
+            "startLine": 35
+          }
+        },
+        {
+          "quotedCode": "export function downloadAttachment(session: Session, attachmentId: number) {\n  const att = findAttachment(attachmentId);\n  if (!att) return { status: 404 };\n  downloadLog.push({ userId: session.userId, attachmentId: att.id });\n  return { status: 200, contentType: att.contentType, body: att.data };\n}",
+          "location": {
+            "path": "routes.ts",
+            "startLine": 44
+          }
+        }
+      ],
+      "note": "The source confirms sequential integer IDs starting at the known value 4474 (one past the highest seed row 4473), with a simple post-increment counter. Combined with the absence of any ownership check in downloadAttachment() — which only checks existence via findAttachment() before returning data — enumeration is trivially cheap. The finding's characterization as an amplifier of the underlying IDOR is accurate: even if authorization were added later, predictable IDs remain an architectural hardening concern."
+    },
+    {
+      "findingId": "finding-5",
+      "status": "verified_real",
+      "evidence": [
+        {
+          "quotedCode": "type DownloadEvent = { userId: string; attachmentId: number };\nconst downloadLog: DownloadEvent[] = [];",
+          "location": {
+            "path": "routes.ts",
+            "startLine": 18
+          }
+        },
+        {
+          "quotedCode": "downloadLog.push({ userId: session.userId, attachmentId: att.id });",
+          "location": {
+            "path": "routes.ts",
+            "startLine": 33
+          }
+        }
+      ],
+      "note": "The source confirms the finding exactly. `downloadLog` is declared as a plain in-memory array with no size cap, and every successful `downloadAttachment()` call unconditionally pushes a new entry. There is no eviction, trimming, rotation, or maximum-length check anywhere in the seam. Under sustained traffic this array grows without bound, consuming memory monotonically."
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+
+> seamstress@0.1.0 review
+> tsx src/review.ts benchmark/bait/idor-randomization/seam.json --json benchmark/bait/idor-randomization/runs/run-1.projection.json
+
+--- SeamStress review: downloadAttachment() — ticket attachment fetch ---
+seam: ticket-attachment-fetch (kind: auth) from benchmark/bait/idor-randomization/seam.json
+
+================ RANKED FINDINGS ================
+
+[1] (critical, confidence=high) VERIFIED_REAL
+    downloadAttachment() performs no ownership or authorization check — any authenticated user can download any attachment by guessing its sequential ID.
+    reasoning: The only guard is `if (!att) return { status: 404 }`, which checks existence, not ownership. Nothing compares session.userId to att.uploadedBy or verifies any relationship to att.ticketId. Attachment IDs are sequential integers (seed rows 4471-4473, counter at 4474), so they are trivially enumerable. A user authenticated for ticket 312 can request attachmentId 4471 and receive the PDF belonging to u_2054's ticket 310. The downloadLog.push happens after the row is already selected and does not gate access. Five critics independently identified this as the core defect.
+    verdict: verified_real — The downloadAttachment function contains exactly one guard — existence check via `if (!att) return { status: 404 }`. There is no comparison of session.userId against att.uploadedBy or att.ticketId, nor any check that the requesting user owns or is permitted to access the associated ticket. The store confirms attachment IDs are sequential integers starting at 4471, making enumeration trivial. The downloadLog.push is purely observational and does not gate access. The finding is fully confirmed by the source.
+      evidence (routes.ts:34): export function downloadAttachment(session: Session, attachmentId: number) {
+  const att = findAttachment(attachmentId);
+  if (!att) return { status: 404 };
+  downloadLog.push({ userId: session.userId, attachmentId: att.id });
+  return { status: 200, contentType: att.contentType, body: att.data };
+}
+      evidence (store.ts:20): const attachments: Attachment[] = [
+  { id: 4471, ticketId: 310, uploadedBy: "u_2054", filename: "invoice-march.pdf", contentType: "application/pdf", data: "JVBERi0xLjQK" },
+  { id: 4472, ticketId: 310, uploadedBy: "u_2054", filename: "render-screenshot.png", contentType: "image/png", data: "iVBORw0KGgo" },
+  { id: 4473, ticketId: 312, uploadedBy: "u_1198", filename: "crash-log.txt", contentType: "text/plain", data: "RXJyb3I6IGV4cG9ydCBmYWlsZWQK" },
+];
+
+let nextAttachmentId = 4474;
+
+[2] (high, confidence=high) JUDGMENT_CALL
+    listTicketAttachments() has no ownership check — any authenticated user can enumerate attachment metadata (IDs, filenames, content types) for any ticket ID.
+    reasoning: attachmentsForTicket(ticketId) is called with the raw caller-supplied ticketId and the mapped rows are returned with no verification that session.userId is related to that ticket. Ticket IDs are also low sequential integers, so an attacker walks ticket IDs to harvest valid attachment IDs and filenames, then feeds them straight into the download IDOR. This directly compounds the critical finding by removing even the need to guess attachment IDs, but on its own it leaks metadata rather than the file bytes.
+    verdict: judgment_call — The code confirms there is no ownership check whatsoever. `listTicketAttachments` accepts a caller-supplied `ticketId`, passes it directly to `attachmentsForTicket`, and returns attachment metadata (id, filename, contentType) without ever verifying that `session.userId` matches `ticket.openedBy` or any other authorization relationship. The store's `attachmentsForTicket` is a pure filter with no access control. Any authenticated user can enumerate metadata for any ticket by iterating sequential integer ticket IDs. [SeamStress reachability gate: this finding's external-reachability claim could not be confirmed — rows is declared but not exported from the module, so the "reachable/overwritable from outside" assertion is unverified. Down-scoped from verified_real to judgment_call.]
+      evidence (routes.ts:26): export function listTicketAttachments(session: Session, ticketId: number) {
+  const rows = attachmentsForTicket(ticketId).map((a) => ({
+    id: a.id,
+    filename: a.filename,
+    contentType: a.contentType,
+  }));
+  return { status: 200, body: rows };
+}
+      evidence (store.ts:44): export function attachmentsForTicket(ticketId: number): Attachment[] {
+  return attachments.filter((a) => a.ticketId === ticketId);
+}
+
+[3] (high, confidence=high) JUDGMENT_CALL
+    uploadAttachment() does not verify the caller owns or participates in the target ticketId — any authenticated user can attach files to any ticket.
+    reasoning: insertAttachment is called with the caller-supplied ticketId and session.userId with no check that the ticket exists or that the user is entitled to it. An authenticated user as u_1198 can attach content to ticket 310, and that row is then downloadable by others via the same missing checks. Critics split between 'high' and 'medium'; the write path is fully reachable and lets an attacker inject content into another user's ticket, which is a real integrity/abuse effect, so high is warranted over medium.
+    verdict: judgment_call — The uploadAttachment handler passes the caller-supplied ticketId directly to insertAttachment with no validation that the ticket exists, no check that session.userId matches the ticket's openedBy field, and no role/permission check. Any authenticated user can attach files to any ticketId, including tickets they don't own (e.g., u_1198 attaching to ticket 310 owned by u_2054). The store provides ticketsOpenedBy() which could be used for such a check, but it is never called in this path. [SeamStress reachability gate: this finding's external-reachability claim could not be confirmed — row is declared but not exported from the module, so the "reachable/overwritable from outside" assertion is unverified. Down-scoped from verified_real to judgment_call.]
+      evidence (routes.ts:42): export function uploadAttachment(
+  session: Session,
+  ticketId: number,
+  filename: string,
+  contentType: string,
+  data: string,
+) {
+  const row = insertAttachment(ticketId, session.userId, filename, contentType, data);
+  return { status: 201, body: { id: row.id, filename: row.filename } };
+}
+      evidence (store.ts:40): export function insertAttachment(
+  ticketId: number,
+  uploadedBy: string,
+  filename: string,
+  contentType: string,
+  data: string,
+): Attachment {
+  const row = { id: nextAttachmentId++, ticketId, uploadedBy, filename, contentType, data };
+  attachments.push(row);
+  return row;
+}
+
+[4] (medium, confidence=medium) JUDGMENT_CALL
+    downloadLog records access only after the bytes are composed for return, so the audit trail is decorative rather than enforcing and would be silently lost if the log write ever failed in a DB-backed build.
+    reasoning: The push to downloadLog occurs after att is fetched and immediately before returning the payload; it gates nothing. In the current in-memory form there is no failure path, and the log does not affect enforcement, so this is not a runtime bug today. It only becomes a silent-audit-loss risk in a future async/DB implementation where the write could throw while the 200 is still returned. That is a latent, harden-this concern, capped at medium.
+    verdict: judgment_call — The code confirms the finding's description: downloadLog.push() is called after the attachment is fetched and immediately before returning the payload — it gates nothing. In the current in-memory implementation this is benign (no failure path exists). The finding's concern is valid but forward-looking: it only becomes a real risk in a DB-backed build where the log write could fail silently while the response is already composed. Whether this warrants a fix depends on whether the audit log is intended to be authoritative/enforcing vs. informational. The code as written makes no such guarantee, so this is a real design concern but not a current runtime bug — hence judgment_call.
+      evidence (routes.ts:36): const att = findAttachment(attachmentId);
+  if (!att) return { status: 404 };
+  downloadLog.push({ userId: session.userId, attachmentId: att.id });
+  return { status: 200, contentType: att.contentType, body: att.data };
+
+================ SYNTHESIS ================
+The seam is a support-ticket attachment API guarded only by authentication, with no per-object authorization anywhere. Three handlers (download, list, upload) all trust caller-supplied ticket/attachment IDs, and because IDs are small sequential integers, an authenticated user can enumerate and exfiltrate or poison every other user's ticket data. The dominant, currently-reachable issue is the download IDOR, amplified by the metadata-listing endpoint that hands attackers the IDs directly.
+
+================ COST BY PIPELINE STAGE ================
+  critic         $0.045741
+  synthesis      $0.067560
+  verification   $0.044430
+  ----------------------------
+  by model:
+    claude-sonnet-4-6          $0.090171
+    claude-opus-4-8            $0.067560
+  TOTAL          $0.157731 (16854 in / 5343 out tokens, 8 calls)
+Findings projection written to benchmark/bait/idor-randomization/runs/run-1.projection.json

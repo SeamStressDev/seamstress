@@ -1,0 +1,172 @@
+{
+  "seams": [
+    {
+      "id": "ticket-attachment-fetch",
+      "kind": "auth"
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-1",
+      "seamId": "ticket-attachment-fetch",
+      "description": "downloadAttachment() performs no ownership or ticket-membership check — any authenticated user can download any attachment by enumerating its sequential integer ID.",
+      "reasoning": "The function resolves the attachment by ID (findAttachment), logs, and returns att.data with no verification that session.userId equals att.uploadedBy or opened att.ticketId. The upstream auth middleware only guarantees the caller is authenticated, not authorized to the specific resource. IDs are sequential integers (seed rows 4471-4473, counter at 4474), so enumeration is trivial. The downloadLog.push preceding the return records the event but does not gate access, giving false accountability. Seed data includes financial/PII documents (invoice-march.pdf).",
+      "blastRadius": "critical",
+      "confidence": "high",
+      "consequence": "Any logged-in user can pull down another user's invoice PDFs, screenshots, and crash logs just by trying attachment IDs like 4471, 4472, 4473.",
+      "locations": [
+        {
+          "path": "routes.ts",
+          "startLine": 30,
+          "endLine": 35
+        }
+      ]
+    },
+    {
+      "id": "finding-2",
+      "seamId": "ticket-attachment-fetch",
+      "description": "listTicketAttachments() has no ticket-ownership check, leaking attachment metadata (filenames, content types, IDs) for any ticket to any authenticated user and enabling targeted enumeration.",
+      "reasoning": "attachmentsForTicket(ticketId) is called with the caller-supplied ticketId without confirming session.userId opened or participates in the ticket. It returns id/filename/contentType, which directly hands an attacker the exact attachment IDs to feed into downloadAttachment(). This is a second, targeted path to the same sensitive data and compounds the primary IDOR: even if downloadAttachment were later guarded, this leaks file existence and names across ownership boundaries.",
+      "blastRadius": "high",
+      "confidence": "high",
+      "consequence": "Any logged-in user can list the filenames of files on a stranger's ticket (e.g. ticket 310) and learn exactly which attachment IDs to grab.",
+      "locations": [
+        {
+          "path": "routes.ts",
+          "startLine": 22,
+          "endLine": 29
+        }
+      ]
+    },
+    {
+      "id": "finding-3",
+      "seamId": "ticket-attachment-fetch",
+      "description": "uploadAttachment() does not verify the caller owns or may attach to the target ticketId, allowing any authenticated user to inject files into any ticket or create orphaned attachment rows.",
+      "reasoning": "insertAttachment(ticketId, session.userId, ...) is called with a caller-supplied ticketId and no check that the ticket exists or that the user is related to it. An attacker can attach content to another user's support case (poisoning the ticket, which support staff or the ticket owner will later open — combined with the unguarded download, the injected file is readable by anyone) or pass an arbitrary integer to create orphaned rows that inflate queue stats and probe which ticket IDs exist.",
+      "blastRadius": "high",
+      "confidence": "high",
+      "consequence": "Any logged-in user can drop a file onto someone else's support ticket, so that ticket's owner or an agent sees and may open attacker-supplied content.",
+      "locations": [
+        {
+          "path": "routes.ts",
+          "startLine": 37,
+          "endLine": 47
+        }
+      ]
+    },
+    {
+      "id": "finding-4",
+      "seamId": "ticket-attachment-fetch",
+      "description": "downloadLog is the only accountability mechanism for a sensitive data-fetch, yet it is a non-persistent in-memory array that is lost on restart and never gates access.",
+      "reasoning": "The audit record is pushed to an in-memory array with no persistence or flush, and it runs after (not before) the access decision, so it cannot serve as a control. Given the seed data includes financial/PII documents, the absence of a durable audit trail for downloads is a real compliance gap, but it is a weakness of the logging mechanism rather than a directly exploitable path, so it caps below the access-control findings.",
+      "blastRadius": "medium",
+      "confidence": "high",
+      "consequence": "After any restart there is no lasting record of who downloaded which sensitive attachment, so an unauthorized access leaves no trace operators can review.",
+      "locations": [
+        {
+          "path": "routes.ts",
+          "startLine": 8,
+          "endLine": 9
+        },
+        {
+          "path": "routes.ts",
+          "startLine": 32,
+          "endLine": 32
+        }
+      ]
+    }
+  ],
+  "verifications": [
+    {
+      "findingId": "finding-1",
+      "status": "verified_real",
+      "evidence": [
+        {
+          "quotedCode": "export function downloadAttachment(session: Session, attachmentId: number) {\n  const att = findAttachment(attachmentId);\n  if (!att) return { status: 404 };\n  downloadLog.push({ userId: session.userId, attachmentId: att.id });\n  return { status: 200, contentType: att.contentType, body: att.data };\n}",
+          "location": {
+            "path": "routes.ts",
+            "startLine": 30
+          }
+        },
+        {
+          "quotedCode": "let nextAttachmentId = 4474;",
+          "location": {
+            "path": "store.ts",
+            "startLine": 30
+          }
+        },
+        {
+          "quotedCode": "{ id: 4471, ticketId: 310, uploadedBy: \"u_2054\", filename: \"invoice-march.pdf\", contentType: \"application/pdf\", data: \"JVBERi0xLjQK\" },",
+          "location": {
+            "path": "store.ts",
+            "startLine": 23
+          }
+        }
+      ],
+      "note": "The code confirms all three elements of the finding: (1) downloadAttachment() only checks existence via findAttachment() with no comparison of session.userId against att.uploadedBy or att.ticketId — there is no authorization gate whatsoever; (2) IDs are sequential integers starting at 4471 with a public counter at 4474, making enumeration trivial; (3) downloadLog.push() records the event but does not block access, providing false accountability. The function returns att.data unconditionally to any authenticated user who supplies a valid integer ID, including sensitive files like invoice-march.pdf."
+    },
+    {
+      "findingId": "finding-2",
+      "status": "verified_real",
+      "evidence": [
+        {
+          "quotedCode": "export function listTicketAttachments(session: Session, ticketId: number) {\n  const rows = attachmentsForTicket(ticketId).map((a) => ({\n    id: a.id,\n    filename: a.filename,\n    contentType: a.contentType,\n  }));\n  return { status: 200, body: rows };\n}",
+          "location": {
+            "path": "routes.ts",
+            "startLine": 22
+          }
+        },
+        {
+          "quotedCode": "export function ticketsOpenedBy(userId: string): Ticket[] {\n  return tickets.filter((t) => t.openedBy === userId);\n}",
+          "location": {
+            "path": "store.ts",
+            "startLine": 53
+          }
+        }
+      ],
+      "note": "The code confirms the finding exactly. listTicketAttachments() takes a caller-supplied ticketId and directly calls attachmentsForTicket(ticketId) with no check that session.userId opened or has access to the ticket. The store exposes ticketsOpenedBy() which could be used to verify ownership, but it is never consulted here. The function returns id, filename, and contentType for any ticket's attachments, enabling any authenticated user to enumerate attachment metadata across all tickets. Those returned IDs then feed directly into downloadAttachment(), which also lacks an ownership check, compounding the IDOR."
+    },
+    {
+      "findingId": "finding-3",
+      "status": "judgment_call",
+      "evidence": [
+        {
+          "quotedCode": "export function uploadAttachment(\n  session: Session,\n  ticketId: number,\n  filename: string,\n  contentType: string,\n  data: string,\n) {\n  const row = insertAttachment(ticketId, session.userId, filename, contentType, data);\n  return { status: 201, body: { id: row.id, filename: row.filename } };\n}",
+          "location": {
+            "path": "routes.ts",
+            "startLine": 37
+          }
+        },
+        {
+          "quotedCode": "export function insertAttachment(\n  ticketId: number,\n  uploadedBy: string,\n  filename: string,\n  contentType: string,\n  data: string,\n): Attachment {\n  const row = { id: nextAttachmentId++, ticketId, uploadedBy, filename, contentType, data };\n  attachments.push(row);\n  return row;\n}",
+          "location": {
+            "path": "store.ts",
+            "startLine": 35
+          }
+        }
+      ],
+      "note": "The uploadAttachment() handler accepts a caller-supplied ticketId and immediately passes it to insertAttachment() with zero validation. There is no check that the ticket exists (no lookup against the tickets array), no check that session.userId matches the ticket's openedBy field, and no role-based authorization. Any authenticated user can supply an arbitrary ticketId — whether a real ticket they don't own, or a nonexistent integer — and the attachment row will be created unconditionally. The store's insertAttachment() likewise performs no validation. This confirms both the ticket-poisoning and orphaned-row attack vectors described in the finding. [SeamStress reachability gate: this finding's external-reachability claim could not be confirmed — rows is declared but not exported from the module, so the \"reachable/overwritable from outside\" assertion is unverified. Down-scoped from verified_real to judgment_call.]"
+    },
+    {
+      "findingId": "finding-4",
+      "status": "verified_real",
+      "evidence": [
+        {
+          "quotedCode": "type DownloadEvent = { userId: string; attachmentId: number };\nconst downloadLog: DownloadEvent[] = [];",
+          "location": {
+            "path": "routes.ts",
+            "startLine": 8
+          }
+        },
+        {
+          "quotedCode": "downloadLog.push({ userId: session.userId, attachmentId: att.id });",
+          "location": {
+            "path": "routes.ts",
+            "startLine": 32
+          }
+        }
+      ],
+      "note": "The code confirms both claims: (1) downloadLog is a plain in-memory array (`const downloadLog: DownloadEvent[] = []`) with no persistence mechanism, flush, or external sink — it will be lost on any restart; (2) the push occurs after the access decision and data retrieval (`findAttachment` → return 404 or push+return 200), so it is purely retrospective logging and cannot gate access. The finding accurately characterizes this as a compliance/accountability gap rather than a directly exploitable path, which is appropriate given the seed data includes financial PDFs and PII-adjacent content."
+    }
+  ]
+}
