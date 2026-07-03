@@ -8,7 +8,7 @@
         "blast_radius_min": "high",
         "all_of": [
           ["idempoten", "retry.?key", "dedup"],
-          ["one .{0,15}path", "only .{0,15}(the )?(legacy|charges)", "not .{0,15}(the )?(intent|payment.?intent)", "second .{0,10}path", "asymmetr", "missing on", "one of (the )?two", "not both", "(charges|legacy).{0,250}(payment.?intent|intent path|chargeviaintent)", "chargeviaintent.{0,250}(chargevialegacy|legacy path|charges path)", "(passes|attaches|has|includes|generates?|sets?) .{0,30}(idempoten|key).{0,220}(no|without|missing|lacks) .{0,25}(idempoten|key|opts)", "(no|without|missing|lacks) .{0,25}(idempoten|key|opts).{0,220}(passes|attaches|has|includes|generates?|sets?) .{0,30}(idempoten|key)"],
+          ["one .{0,15}path", "only .{0,15}(the )?(legacy|charges)", "not .{0,15}(the )?(intent|payment.?intent)", "second .{0,10}path", "asymmetr", "missing on", "one of (the )?two", "not both", "(passes|attaches|has|includes|generates?|sets?|adds?|uses?|provides?|dedup) .{0,30}(idempoten|key).{0,220}(no|without|missing|lacks?|omit|skip|does ?n'?t|do ?n'?t|fail|never) .{0,30}(idempoten|key|opts)", "(no|without|missing|lacks?|omit|skip|does ?n'?t|do ?n'?t|fail|never) .{0,30}(idempoten|key|opts).{0,220}(passes|attaches|has|includes|generates?|sets?|adds?|uses?|provides?|dedup) .{0,30}(idempoten|key)"],
           ["retry", "retried", "re-?fire", "duplicate", "double.?charg", "charged .{0,10}(twice|again|multiple)"]
         ]
       }
