@@ -1,0 +1,9 @@
+{
+  "id": "003-idempotency-coverage-asymmetry",
+  "title": "Idempotency coverage asymmetry between two charge paths",
+  "seam_kind": "money_path",
+  "difficulty": 2,
+  "source": "postmortem-derived (catalog case 3: WooCommerce Stripe Gateway #2339 + Stripe idempotency docs)",
+  "validity": "proposed",
+  "validity_evidence": "Reconstruction of catalog case 3 (idempotency-key-covers-only-one-of-two-charge-paths); primary sources WooCommerce Stripe Gateway issue #2339 and Stripe idempotency documentation; author attestation."
+}

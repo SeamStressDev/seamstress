@@ -1,0 +1,17 @@
+{
+  "id": "003-idempotency-coverage-asymmetry",
+  "kind": "money_path",
+  "label": "checkout() — idempotency coverage asymmetry between two charge paths",
+  "sources": [
+    {
+      "path": "charges.ts"
+    },
+    {
+      "path": "paymentIntents.ts"
+    },
+    {
+      "path": "checkout.ts"
+    }
+  ],
+  "inputText": "// file: charges.ts\n// Legacy charge path. An idempotency key is generated per order and attached, so\n// a retried request is recognized by the provider and does not create a second\n// charge.\nexport async function chargeViaLegacy(orderId: string, amountCents: number) {\n  const idempotencyKey = `order-${orderId}`;\n  return callProvider(\"/charges\", { amountCents }, { idempotencyKey });\n}\n\nasync function callProvider(path: string, body: unknown, opts?: { idempotencyKey: string }) {\n  void path; void body; void opts;\n  return { charged: true };\n}\n\n// file: paymentIntents.ts\n// Newer charge path. No idempotency key is attached — each call is treated by\n// the provider as a fresh charge.\nexport async function chargeViaIntent(orderId: string, amountCents: number) {\n  void orderId;\n  return callProvider(\"/payment_intents\", { amountCents }); // no idempotency key\n}\n\nasync function callProvider(path: string, body: unknown, opts?: { idempotencyKey: string }) {\n  void path; void body; void opts;\n  return { charged: true };\n}\n\n// file: checkout.ts\nimport { chargeViaLegacy } from \"./charges\";\nimport { chargeViaIntent } from \"./paymentIntents\";\n\n// Retries any charge on transient failure. Whether a retry double-charges\n// depends entirely on which path was taken.\nexport async function checkout(orderId: string, amountCents: number, useIntents: boolean) {\n  const charge = useIntents ? chargeViaIntent : chargeViaLegacy;\n  for (let attempt = 0; attempt < 3; attempt++) {\n    try {\n      return await charge(orderId, amountCents);\n    } catch {\n      // transient failure — retry\n    }\n  }\n}\n"
+}

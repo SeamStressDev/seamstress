@@ -1,0 +1,38 @@
+{
+  "must_find": [
+    {
+      "id": "idempotency-coverage-asymmetry",
+      "description": "Idempotency protects the legacy charge path but not the payment-intents path; a retry through the unprotected path is treated as a fresh charge and double-charges. The bug is coverage asymmetry between two money-moving paths, not the absence of idempotency.",
+      "match": {
+        "seam_kind": "money_path",
+        "blast_radius_min": "high",
+        "all_of": [
+          ["idempoten", "retry.?key", "dedup"],
+          ["one .{0,15}path", "only .{0,15}(the )?(legacy|charges)", "not .{0,15}(the )?(intent|payment.?intent)", "second .{0,10}path", "asymmetr", "missing on", "one of (the )?two", "not both"],
+          ["retry", "retried", "re-?fire", "duplicate", "double.?charg", "charged .{0,10}(twice|again|multiple)"]
+        ]
+      }
+    }
+  ],
+  "must_not_claim": [
+    {
+      "id": "protected-path-is-defective",
+      "description": "The legacy path is correctly protected. A review must not claim the idempotency implementation on the legacy/charges path is the defect.",
+      "match": {
+        "all_of": [
+          ["legacy", "charges .{0,10}path", "first .{0,10}path", "chargeViaLegacy"],
+          ["broken", "defect", "wrong", "incorrect", "bug in", "flaw", "fails", "missing .{0,10}idempoten"]
+        ]
+      }
+    },
+    {
+      "id": "idempotency-missing-entirely",
+      "description": "Idempotency is not absent everywhere — it exists on one path. A review claiming there is no idempotency at all has misread the coverage-asymmetry mechanism.",
+      "match": {
+        "all_of": [
+          ["no idempoten", "idempoten.{0,20}(missing|absent) .{0,15}(entirely|everywhere|at all|throughout)", "lacks idempoten", "without .{0,10}idempoten.{0,20}(anywhere|at all)", "never .{0,10}idempoten"]
+        ]
+      }
+    }
+  ]
+}
