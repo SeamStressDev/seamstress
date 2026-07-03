@@ -205,15 +205,46 @@ runs were scored under no longer exist; artifacts also lost to the rung-5
 /tmp clear. Correct STALE, not softened. Entry validity (4 validated + 005
 proposed) is a separate per-entry column, never summed into the aggregate.
 
+## Entry 001 refresh (2026-07-03 — STALE cleared by fresh run)
+
+One gated review-only run of 001 under current ground truth ($0.1796;
+engine_commit 441502f, ground_truth_commit 2fc7d61; artifacts persisted +
+committed, projection↔log cross-check passed). Scorer, verbatim:
+`PASS — 2/2 must_find hit, 0 missed, 0 false positive(s)` — but the
+`shared-quota-cosmetic-isolation` hit is carried solely by a `judgment_call`
+finding, so under the strict bar the outcome is **`found-unverified`**, not
+clean found. Nate ruled 001's **validity stays `validated`** (the verifier's
+hesitation is an epistemic limit, not evidence against the entry). Both
+migrated traps were live-tested and held (a finding calling the isolation
+"cosmetic" without asserting the split unnecessary left `key-split-is-a-defect`
+correctly silent).
+
+**Real finding from this run (queued):** 001's core mechanism — account-level
+quota/reputation bleed across API keys — is an assumption about EXTERNAL
+provider enforcement that cannot be proven from the fixture source. The
+verifier's note says exactly this. So 001's strict verified_real bar may be
+STRUCTURALLY unreachable as authored. Options queued: pin provider semantics
+in a fixture comment (fixture edit, own session) or accept 001 as
+judgment_call-bound and document it.
+
+**Board as the harness reports it (STALE cleared honestly, 0 DRIFT):**
+
+```
+aggregate (run OUTCOMES only): scored 5 of 5 entries — found=3, found-unverified=1, partial=1; false positives: 0; mode(s): review-only; GT scope: current ground_truth.json content per entry
+```
+
+Validity column (separate axis, never aggregated): 001–004 `validated`,
+005 `proposed`.
+
 ## Next three tasks
 
-1. **Fresh review-only run of 001 under current ground truth** (~$0.15, gated
-   session) to clear the STALE honestly — its ledger rows predate the
-   migrated traps and its artifacts are gone.
-2. **Widen 005's must_find vocabulary** (`identity-absent-from-cache-key`:
+1. **Widen 005's must_find vocabulary** (`identity-absent-from-cache-key`:
    camelCase `cacheKey`, "omits", "never incorporates") + fresh gated run →
    validity decision; consider a must_find-side vocabulary audit across entries
    (same brittleness family as residual (e)).
+2. **001 structural-verifiability decision** — pin provider rate-limit
+   semantics in the fixture (own session) or document 001 as
+   judgment_call-bound; affects whether `found-unverified` is 001's ceiling.
 3. **Full-pipeline runs on 002–005** — extend the recall ledger with
    `full`-mode rows (the harness already keeps modes separate). Queued
    alongside: run-fresh harness mode + JSON output, natural-error-rate study,
