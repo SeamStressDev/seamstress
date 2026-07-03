@@ -1,0 +1,49 @@
+{
+  "seams": [
+    {
+      "id": "004-missing-ownership-check-idor",
+      "kind": "auth"
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-1",
+      "seamId": "004-missing-ownership-check-idor",
+      "description": "getDocument() accepts requesterId but discards it with `void requesterId`, performing no ownership check, so any caller who supplies any valid docId receives the document regardless of who owns it. Sequential IDs make full enumeration of the corpus trivial.",
+      "reasoning": "The `void requesterId` statement and its comment confirm the parameter is intentionally never used for authorization; the lookup is `store.find((d) => d.id === docId)`, keyed only on docId. Requester identity has zero effect on the result. Findings 1, 2, 3, and 5 all describe this single omission from slightly different angles (silent success vs. cosmetic parameter vs. no internal guard), so they consolidate. Finding 4's sequential-ID point is not an independent bug but an amplifier of this same defect: because there is no ownership gate, incrementing docId from 1 upward harvests every document. The neighboring getInvoice() applies exactly the check that is missing here (`inv.ownerId !== requesterId`), proving ownership scoping is the expected house style and this is an omission, not architecture. The path is concretely reachable: any authenticated caller passing another user's docId gets that document now.",
+      "blastRadius": "critical",
+      "confidence": "high",
+      "consequence": "Any user can read every other user's document — including the full body — just by asking for document IDs one after another.",
+      "locations": [
+        {
+          "path": "documents.ts",
+          "startLine": 6,
+          "endLine": 10
+        }
+      ]
+    }
+  ],
+  "verifications": [
+    {
+      "findingId": "finding-1",
+      "status": "verified_real",
+      "evidence": [
+        {
+          "quotedCode": "export function getDocument(requesterId: string, docId: number): Doc | undefined {\n  void requesterId; // accepted, never used for authorization\n  return store.find((d) => d.id === docId);\n}",
+          "location": {
+            "path": "documents.ts",
+            "startLine": 7
+          }
+        },
+        {
+          "quotedCode": "export function getInvoice(requesterId: string, invoiceId: number): Invoice | undefined {\n  const inv = invoices.find((i) => i.id === invoiceId);\n  if (!inv || inv.ownerId !== requesterId) return undefined;\n  return inv;\n}",
+          "location": {
+            "path": "invoices.ts",
+            "startLine": 16
+          }
+        }
+      ],
+      "note": "The finding is fully confirmed by the source. `void requesterId` with its inline comment explicitly documents that the parameter is accepted but never used for authorization, and the lookup `store.find((d) => d.id === docId)` is keyed solely on docId with no ownership filter. The neighboring `getInvoice()` applies `inv.ownerId !== requesterId` proving ownership scoping is the codebase's established pattern, making the omission in `getDocument()` a clear deviation rather than an architectural choice. Any authenticated caller can retrieve any document by its ID, constituting a textbook IDOR."
+    }
+  ]
+}

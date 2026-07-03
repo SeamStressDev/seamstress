@@ -1,0 +1,91 @@
+{
+  "seams": [
+    {
+      "id": "003-idempotency-coverage-asymmetry",
+      "kind": "money_path"
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-1",
+      "seamId": "003-idempotency-coverage-asymmetry",
+      "description": "chargeViaIntent attaches no idempotency key, so checkout()'s retry loop issues a fresh charge on each retry when useIntents=true.",
+      "reasoning": "checkout() retries up to 3 times on any caught exception. chargeViaLegacy passes `idempotencyKey: 'order-${orderId}'`, so the provider deduplicates retried requests and never double-charges. chargeViaIntent calls the same underlying provider without any idempotencyKey (the comment confirms each call is treated as a fresh charge). The common failure mode — the provider processes the charge but the response is lost or times out — causes checkout() to catch the exception and retry, and the retry lands as a brand-new independent charge. Up to 3 charges can be applied for one order. The retry loop, meant to make charging resilient, is the exact mechanism that produces the duplicate charges on this path. This is reachable now: any caller passing useIntents=true takes the unprotected branch, and transient failures are ordinary. This merges the three critical idempotency findings, which describe the identical issue.",
+      "blastRadius": "critical",
+      "confidence": "high",
+      "consequence": "A customer checking out through the newer intent path can be billed two or three times for a single order whenever the first charge succeeds but its response is lost.",
+      "locations": [
+        {
+          "path": "paymentIntents.ts",
+          "startLine": 4,
+          "endLine": 8
+        },
+        {
+          "path": "checkout.ts",
+          "startLine": 8,
+          "endLine": 15
+        }
+      ]
+    },
+    {
+      "id": "finding-2",
+      "seamId": "003-idempotency-coverage-asymmetry",
+      "description": "checkout() implicitly returns undefined after all 3 attempts fail, so callers get no signal that the charge never completed.",
+      "reasoning": "The for-loop catches every exception and retries. If all three attempts throw, the loop exits with no return statement, so the function resolves to undefined — no error is re-thrown and no failure sentinel is returned. A caller that inspects `result.charged` will throw a TypeError on undefined (a noisy but at least detectable failure), but a caller that simply awaits and proceeds to fulfill the order treats the undefined as success and ships/grants goods that were never paid for. This is reachable now: three consecutive transient failures cause it directly. One critic rated this critical and others high; the concrete effect (order fulfilled without payment for a non-inspecting caller) justifies high, but it ranks below the double-charge issue because it depends on caller behavior not shown in the seam and the harm is silent-failure rather than repeated real-money charges. Merges the three silent-undefined findings.",
+      "blastRadius": "high",
+      "confidence": "high",
+      "consequence": "When all charge attempts fail, a caller that does not check the return value proceeds as if the customer paid and fulfills an unpaid order.",
+      "locations": [
+        {
+          "path": "checkout.ts",
+          "startLine": 8,
+          "endLine": 15
+        }
+      ]
+    }
+  ],
+  "verifications": [
+    {
+      "findingId": "finding-1",
+      "status": "verified_real",
+      "evidence": [
+        {
+          "quotedCode": "export async function chargeViaIntent(orderId: string, amountCents: number) {\n  void orderId;\n  return callProvider(\"/payment_intents\", { amountCents }); // no idempotency key\n}",
+          "location": {
+            "path": "paymentIntents.ts",
+            "startLine": 4
+          }
+        },
+        {
+          "quotedCode": "export async function chargeViaLegacy(orderId: string, amountCents: number) {\n  const idempotencyKey = `order-${orderId}`;\n  return callProvider(\"/charges\", { amountCents }, { idempotencyKey });\n}",
+          "location": {
+            "path": "charges.ts",
+            "startLine": 3
+          }
+        },
+        {
+          "quotedCode": "export async function checkout(orderId: string, amountCents: number, useIntents: boolean) {\n  const charge = useIntents ? chargeViaIntent : chargeViaLegacy;\n  for (let attempt = 0; attempt < 3; attempt++) {\n    try {\n      return await charge(orderId, amountCents);\n    } catch {\n      // transient failure — retry\n    }\n  }\n}",
+          "location": {
+            "path": "checkout.ts",
+            "startLine": 6
+          }
+        }
+      ],
+      "note": "The source code directly confirms the finding. chargeViaLegacy explicitly passes an idempotencyKey derived from orderId, while chargeViaIntent omits it entirely (even discarding orderId with `void orderId`). The comment in paymentIntents.ts explicitly states 'each call is treated by the provider as a fresh charge.' checkout()'s retry loop runs up to 3 attempts, meaning up to 3 independent charges can be issued when useIntents=true and transient failures occur. The asymmetry is unambiguous and confirmed by the code."
+    },
+    {
+      "findingId": "finding-2",
+      "status": "verified_real",
+      "evidence": [
+        {
+          "quotedCode": "export async function checkout(orderId: string, amountCents: number, useIntents: boolean) {\n  const charge = useIntents ? chargeViaIntent : chargeViaLegacy;\n  for (let attempt = 0; attempt < 3; attempt++) {\n    try {\n      return await charge(orderId, amountCents);\n    } catch {\n      // transient failure — retry\n    }\n  }\n}",
+          "location": {
+            "path": "checkout.ts",
+            "startLine": 8
+          }
+        }
+      ],
+      "note": "The source confirms it exactly. After the for-loop exhausts all 3 attempts with every exception swallowed by the catch block, there is no return statement, no re-throw, and no failure sentinel — the async function implicitly resolves to undefined. Any caller that proceeds on a truthy/non-undefined assumption will treat the silent undefined as success. The code is unambiguous."
+    }
+  ]
+}

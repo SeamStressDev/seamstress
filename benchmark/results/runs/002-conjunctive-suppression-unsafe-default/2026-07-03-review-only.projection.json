@@ -1,0 +1,126 @@
+{
+  "seams": [
+    {
+      "id": "002-conjunctive-suppression-unsafe-default",
+      "kind": "money_path"
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-1",
+      "seamId": "002-conjunctive-suppression-unsafe-default",
+      "description": "Every monthly interest run wires the full principal out of the bank because partial wash-routing releases the full amount as a live wire.",
+      "reasoning": "releasePayment sets fullySuppressed = routing.front && routing.fund && routing.principal, and only that all-true case returns { wired: 0 }. runMonthlyInterest passes front:false, fund:false, principal:true, so fullySuppressed = false and the else branch fires, returning { wired: principalCents, toWash: 0 }. This is not an edge case — it is the deterministic result on every invocation. The operator believes principal:true alone holds the money; the API contract requires all three. The call site violates that contract silently, with no error, exception, or log.",
+      "blastRadius": "critical",
+      "confidence": "high",
+      "consequence": "Every time the monthly interest job runs, the bank's entire principal balance is wired out of the bank instead of being held internally, when only the interest was meant to move.",
+      "locations": [
+        {
+          "path": "payment.ts",
+          "startLine": 7,
+          "endLine": 14
+        },
+        {
+          "path": "interestRun.ts",
+          "startLine": 8,
+          "endLine": 14
+        }
+      ]
+    },
+    {
+      "id": "finding-2",
+      "seamId": "002-conjunctive-suppression-unsafe-default",
+      "description": "confirmRelease() is a decorative no-op: it always returns true, its return value is never checked, and it shows the operator neither the amount nor the payment type — so it cannot stop the erroneous wire.",
+      "reasoning": "confirmRelease() hardcodes return true and prints only a generic wire warning with no amount and no distinction between an interest wire and a full-principal wire. In interestRun.ts the return value is discarded and releasePayment runs unconditionally on the next line. So the guard gates nothing: even a future version that returned false would not halt execution, and even an attentive operator has no information to catch the misconfiguration. The one human checkpoint on this money path is inert, which is exactly why the finding-1 catastrophe reaches the wire unimpeded.",
+      "blastRadius": "high",
+      "confidence": "high",
+      "consequence": "The operator sees a vague 'funds will be sent' prompt with no dollar figure and clicks through, and nothing the prompt does could ever abort the release, so the mistaken full-principal wire is never caught before it leaves.",
+      "locations": [
+        {
+          "path": "confirm.ts",
+          "startLine": 1,
+          "endLine": 5
+        },
+        {
+          "path": "interestRun.ts",
+          "startLine": 8,
+          "endLine": 9
+        }
+      ]
+    },
+    {
+      "id": "finding-3",
+      "seamId": "002-conjunctive-suppression-unsafe-default",
+      "description": "The interest amount is never computed: runMonthlyInterest passes principalCents directly as the release amount, so the function cannot implement its stated purpose even if the routing logic were corrected.",
+      "reasoning": "The parameter principalCents is passed unchanged as amountCents to releasePayment, and no interest figure is derived anywhere in the seam. Even in the hypothetical all-flags-true case, the code would wire 0 and wash the full principal — it never moves interest. This is a missing-abstraction / latent hazard: fixing the wash flags alone would still not produce a correct interest payment. It compounds the primary bug but, on its own, describes a design gap rather than a distinct currently-reachable harm beyond finding 1.",
+      "blastRadius": "medium",
+      "confidence": "high",
+      "consequence": "Even after someone fixes the wash-routing bug, the code still has no way to send the actual interest, because the interest amount is never calculated anywhere in this path.",
+      "locations": [
+        {
+          "path": "interestRun.ts",
+          "startLine": 7,
+          "endLine": 15
+        }
+      ]
+    }
+  ],
+  "verifications": [
+    {
+      "findingId": "finding-1",
+      "status": "verified_real",
+      "evidence": [
+        {
+          "quotedCode": "const fullySuppressed = routing.front && routing.fund && routing.principal;\n  if (fullySuppressed) return { wired: 0, toWash: amountCents };\n  // Partial routing: only a fully-washed payment releases nothing. Otherwise the\n  // full amount goes out — the system does not net partial suppression.\n  return { wired: amountCents, toWash: 0 };",
+          "location": {
+            "path": "payment.ts",
+            "startLine": 7
+          }
+        },
+        {
+          "quotedCode": "const { wired } = releasePayment(principalCents, {\n    front: false,\n    fund: false,\n    principal: true, // operator believes this alone holds the principal\n  });\n  return wired; // intended 0; actually the full principal",
+          "location": {
+            "path": "interestRun.ts",
+            "startLine": 9
+          }
+        }
+      ],
+      "note": "The logic is unambiguous and deterministic. `fullySuppressed` requires all three flags to be true via logical AND. `runMonthlyInterest` passes `front: false` and `fund: false`, so `fullySuppressed` evaluates to `false` unconditionally on every call, causing `releasePayment` to return `{ wired: principalCents, toWash: 0 }`. The comment in the code itself confirms the discrepancy: `// intended 0; actually the full principal`. The confirmation guard in `confirm.ts` always returns `true` and provides no amount or context, so it offers no protection. This is a verified, deterministic money-path defect."
+    },
+    {
+      "findingId": "finding-2",
+      "status": "verified_real",
+      "evidence": [
+        {
+          "quotedCode": "export function confirmRelease(): boolean {\n  console.warn(\"Account is a Wire Account and funds will be sent out of the bank. Continue?\");\n  return true; // operator clicks through\n}",
+          "location": {
+            "path": "confirm.ts",
+            "startLine": 2
+          }
+        },
+        {
+          "quotedCode": "confirmRelease();\n  const { wired } = releasePayment(principalCents, {",
+          "location": {
+            "path": "interestRun.ts",
+            "startLine": 8
+          }
+        }
+      ],
+      "note": "Both claims are confirmed by the source. First, confirmRelease() hardcodes `return true` and emits only a generic warning with no amount or payment-type context — it cannot inform an operator that the full principal is about to be wired incorrectly. Second, in interestRun.ts the return value of confirmRelease() is discarded entirely (called as a statement, not assigned), so even if it were changed to return false it would not halt execution. releasePayment runs unconditionally on the next line regardless of what confirmRelease() returns. The guard is demonstrably inert on this money path."
+    },
+    {
+      "findingId": "finding-3",
+      "status": "verified_real",
+      "evidence": [
+        {
+          "quotedCode": "export function runMonthlyInterest(principalCents: number): number {\n  confirmRelease();\n  const { wired } = releasePayment(principalCents, {\n    front: false,\n    fund: false,\n    principal: true, // operator believes this alone holds the principal\n  });\n  return wired; // intended 0; actually the full principal\n}",
+          "location": {
+            "path": "interestRun.ts",
+            "startLine": 7
+          }
+        }
+      ],
+      "note": "The source confirms that `principalCents` is passed unchanged as the amount to `releasePayment` — no interest calculation is performed anywhere in the seam. The function receives `principalCents` and immediately forwards it without deriving an interest figure, meaning even if all three wash-routing flags were set to `true`, the function would wash the full principal and never compute or release an actual interest amount. The finding is accurate: this is a distinct missing-abstraction issue that compounds the primary routing bug."
+    }
+  ]
+}

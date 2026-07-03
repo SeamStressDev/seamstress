@@ -1,0 +1,65 @@
+
+> seamstress@0.1.0 review
+> tsx src/review.ts benchmark/entries/005-identity-absent-cache-key/seam.json --json benchmark/results/runs/005-identity-absent-cache-key/2026-07-03-review-only.projection.json
+
+--- SeamStress review: renderAccountPage() — identity absent from the cache key ---
+seam: 005-identity-absent-cache-key (kind: tenant_isolation) from benchmark/entries/005-identity-absent-cache-key/seam.json
+
+================ RANKED FINDINGS ================
+
+[1] (critical, confidence=high) VERIFIED_REAL
+    renderAccountPage() caches personalized account pages under a key that omits user identity, so one authenticated user's billing address and card last-4 are returned to the next user who requests the same path+query.
+    reasoning: cacheKey(path, query) never incorporates userId. In renderAccountPage(), getCached(key) is consulted before any identity check, and on a hit the cached { userId, billingAddress, cardLast4 } object is returned directly. When user A loads /account?tab=billing, their page is stored under 'account?tab=billing'; when user B requests the same URL, the early return hands them A's data verbatim. The userId parameter is used to build the page but is never wired into the key or used to validate a hit, so the cache actively causes cross-user disclosure. This is the merge of four separate critic findings describing the identical defect.
+    verdict: verified_real — The evidence is unambiguous. cacheKey() derives its key solely from path and query, never incorporating userId. In renderAccountPage(), the key is computed without userId, and any cache hit is returned immediately without validating that the cached entry belongs to the requesting user. The stored object contains sensitive fields (billingAddress, cardLast4) tied to the original user who populated the cache. Any subsequent user requesting the same path+query receives the first user's personal data verbatim. This is a clear cross-user data disclosure via the cache.
+      evidence (cache.ts:4): export function cacheKey(path: string, query: string): string {
+  return `${path}?${query}`;
+}
+      evidence (accountPage.ts:7): export function renderAccountPage(userId: string, path: string, query: string): unknown {
+  const key = cacheKey(path, query);
+  const hit = getCached(key);
+  if (hit) return hit; // may be ANOTHER user's account page
+
+  const page = { userId, billingAddress: lookupAddress(userId), cardLast4: lookupCard(userId) };
+  setCached(key, page);
+  return page;
+}
+
+[2] (medium, confidence=medium) VERIFIED_REAL
+    userId is an unvalidated parameter not bound to the session, and setCached is exported, allowing a caller to poison the cache under a victim's path+query or read a victim's cached entry.
+    reasoning: The function accepts userId as a plain string with no shown binding to an authenticated session, and cache.ts exports setCached publicly. A caller could invoke setCached(cacheKey(victimPath, victimQuery), attackerPage) directly, or call renderAccountPage with a chosen userId to seed the cache for a key another user will hit. However, note that the primary harm (cross-user read) is already fully realized by the identity-less key above through ordinary use; this finding's extra shapes (deliberate poisoning, arbitrary userId) depend on caller-side assumptions not visible in the seam and on whether authenticated userId is actually caller-controlled. The exported setCached is a latent hardening gap — no code path here invokes it maliciously — so this caps below the confirmed disclosure.
+    verdict: verified_real — The core tenant isolation failure is confirmed by the source: cacheKey() omits userId entirely, so the first user to request a given path+query seeds the cache with their private account data (billing address, card last-4), and any subsequent user requesting the same path+query receives that cached response via the `if (hit) return hit` branch. The exported setCached also exists as an additional hardening gap, but the primary confirmed vulnerability is the cross-user data leak through ordinary use of renderAccountPage.
+      evidence (cache.ts:5): export function cacheKey(path: string, query: string): string {
+  return `${path}?${query}`;
+}
+      evidence (cache.ts:10): export function setCached(key: string, value: unknown) { cache.set(key, value); }
+      evidence (accountPage.ts:8): const key = cacheKey(path, query);
+  const hit = getCached(key);
+  if (hit) return hit; // may be ANOTHER user's account page
+
+  const page = { userId, billingAddress: lookupAddress(userId), cardLast4: lookupCard(userId) };
+  setCached(key, page);
+  return page;
+
+[3] (low, confidence=low) JUDGMENT_CALL
+    Errors from lookupAddress or lookupCard are not caught or shaped; they propagate as untyped exceptions with no cache entry written.
+    reasoning: The page object is built inline with two synchronous lookups and no try/catch. If either throws, the exception unwinds without caching a broken value (which is actually correct behavior), but the caller receives an untyped exception. This is a robustness/error-shaping observation, not a security or isolation defect, and there is no evidence in the seam that these lookups throw or that callers swallow it harmfully. It is retained as a minor, largely speculative concern.
+    verdict: judgment_call — The finding is technically accurate: there is no try/catch around the lookupAddress/lookupCard calls, so any exception would propagate unhandled and no cache entry would be written. However, the stub implementations shown in the seam never throw, and the finding's own reasoning acknowledges this is speculative — no evidence exists that callers handle exceptions harmfully or that the real implementations throw. The 'not caching on error' behavior is actually correct. This hinges entirely on what the real (non-stub) lookup implementations do, which is outside the seam source. It is a real structural gap (no error handling) but whether it matters depends on implementation details not visible here.
+      evidence (accountPage.ts:9): const page = { userId, billingAddress: lookupAddress(userId), cardLast4: lookupCard(userId) };
+  setCached(key, page);
+  return page;
+      evidence (accountPage.ts:13): function lookupAddress(u: string) { void u; return "…"; }
+function lookupCard(u: string) { void u; return "…"; }
+
+================ SYNTHESIS ================
+The dominant and confirmed issue is that renderAccountPage() derives its cache key from path+query only, so one user's personalized account page (billing address, card last-4) is served verbatim to the next requester of the same URL — a concrete, reachable cross-user PII disclosure. Four of the five findings describe this same defect and are merged. A distinct cache-poisoning/identity-binding concern is kept as a lower-severity item, and the error-handling finding is retained at reduced severity.
+
+================ COST BY PIPELINE STAGE ================
+  critic         $0.028254
+  synthesis      $0.052035
+  verification   $0.024816
+  ----------------------------
+  by model:
+    claude-sonnet-4-6          $0.053070
+    claude-opus-4-8            $0.052035
+  TOTAL          $0.105105 (8357 in / 3948 out tokens, 7 calls)
+Findings projection written to benchmark/results/runs/005-identity-absent-cache-key/2026-07-03-review-only.projection.json

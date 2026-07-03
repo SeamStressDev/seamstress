@@ -1,0 +1,60 @@
+
+> seamstress@0.1.0 review
+> tsx src/review.ts benchmark/entries/003-idempotency-coverage-asymmetry/seam.json --json benchmark/results/runs/003-idempotency-coverage-asymmetry/2026-07-03-review-only.projection.json
+
+--- SeamStress review: checkout() — idempotency coverage asymmetry between two charge paths ---
+seam: 003-idempotency-coverage-asymmetry (kind: money_path) from benchmark/entries/003-idempotency-coverage-asymmetry/seam.json
+
+================ RANKED FINDINGS ================
+
+[1] (critical, confidence=high) VERIFIED_REAL
+    chargeViaIntent attaches no idempotency key, so checkout()'s retry loop issues a fresh charge on each retry when useIntents=true.
+    reasoning: checkout() retries up to 3 times on any caught exception. chargeViaLegacy passes `idempotencyKey: 'order-${orderId}'`, so the provider deduplicates retried requests and never double-charges. chargeViaIntent calls the same underlying provider without any idempotencyKey (the comment confirms each call is treated as a fresh charge). The common failure mode — the provider processes the charge but the response is lost or times out — causes checkout() to catch the exception and retry, and the retry lands as a brand-new independent charge. Up to 3 charges can be applied for one order. The retry loop, meant to make charging resilient, is the exact mechanism that produces the duplicate charges on this path. This is reachable now: any caller passing useIntents=true takes the unprotected branch, and transient failures are ordinary. This merges the three critical idempotency findings, which describe the identical issue.
+    verdict: verified_real — The source code directly confirms the finding. chargeViaLegacy explicitly passes an idempotencyKey derived from orderId, while chargeViaIntent omits it entirely (even discarding orderId with `void orderId`). The comment in paymentIntents.ts explicitly states 'each call is treated by the provider as a fresh charge.' checkout()'s retry loop runs up to 3 attempts, meaning up to 3 independent charges can be issued when useIntents=true and transient failures occur. The asymmetry is unambiguous and confirmed by the code.
+      evidence (paymentIntents.ts:4): export async function chargeViaIntent(orderId: string, amountCents: number) {
+  void orderId;
+  return callProvider("/payment_intents", { amountCents }); // no idempotency key
+}
+      evidence (charges.ts:3): export async function chargeViaLegacy(orderId: string, amountCents: number) {
+  const idempotencyKey = `order-${orderId}`;
+  return callProvider("/charges", { amountCents }, { idempotencyKey });
+}
+      evidence (checkout.ts:6): export async function checkout(orderId: string, amountCents: number, useIntents: boolean) {
+  const charge = useIntents ? chargeViaIntent : chargeViaLegacy;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await charge(orderId, amountCents);
+    } catch {
+      // transient failure — retry
+    }
+  }
+}
+
+[2] (high, confidence=high) VERIFIED_REAL
+    checkout() implicitly returns undefined after all 3 attempts fail, so callers get no signal that the charge never completed.
+    reasoning: The for-loop catches every exception and retries. If all three attempts throw, the loop exits with no return statement, so the function resolves to undefined — no error is re-thrown and no failure sentinel is returned. A caller that inspects `result.charged` will throw a TypeError on undefined (a noisy but at least detectable failure), but a caller that simply awaits and proceeds to fulfill the order treats the undefined as success and ships/grants goods that were never paid for. This is reachable now: three consecutive transient failures cause it directly. One critic rated this critical and others high; the concrete effect (order fulfilled without payment for a non-inspecting caller) justifies high, but it ranks below the double-charge issue because it depends on caller behavior not shown in the seam and the harm is silent-failure rather than repeated real-money charges. Merges the three silent-undefined findings.
+    verdict: verified_real — The source confirms it exactly. After the for-loop exhausts all 3 attempts with every exception swallowed by the catch block, there is no return statement, no re-throw, and no failure sentinel — the async function implicitly resolves to undefined. Any caller that proceeds on a truthy/non-undefined assumption will treat the silent undefined as success. The code is unambiguous.
+      evidence (checkout.ts:8): export async function checkout(orderId: string, amountCents: number, useIntents: boolean) {
+  const charge = useIntents ? chargeViaIntent : chargeViaLegacy;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      return await charge(orderId, amountCents);
+    } catch {
+      // transient failure — retry
+    }
+  }
+}
+
+================ SYNTHESIS ================
+The seam contains two distinct, currently-reachable defects. First, the intent charge path omits the idempotency key that the legacy path carries, so checkout()'s retry loop double- or triple-charges customers whenever useIntents=true and a transient failure occurs after the provider processed the charge. Second, checkout() implicitly returns undefined after exhausting all retries, so callers cannot distinguish a fully-failed charge from a successful one. Both were raised by multiple critics and are merged here; both are reachable through ordinary operation.
+
+================ COST BY PIPELINE STAGE ================
+  critic         $0.032970
+  synthesis      $0.048135
+  verification   $0.018360
+  ----------------------------
+  by model:
+    claude-sonnet-4-6          $0.051330
+    claude-opus-4-8            $0.048135
+  TOTAL          $0.099465 (8817 in / 3584 out tokens, 6 calls)
+Findings projection written to benchmark/results/runs/003-idempotency-coverage-asymmetry/2026-07-03-review-only.projection.json

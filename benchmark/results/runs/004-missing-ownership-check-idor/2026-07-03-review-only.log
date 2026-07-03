@@ -1,0 +1,36 @@
+
+> seamstress@0.1.0 review
+> tsx src/review.ts benchmark/entries/004-missing-ownership-check-idor/seam.json --json benchmark/results/runs/004-missing-ownership-check-idor/2026-07-03-review-only.projection.json
+
+--- SeamStress review: getDocument() — missing ownership check (IDOR) ---
+seam: 004-missing-ownership-check-idor (kind: auth) from benchmark/entries/004-missing-ownership-check-idor/seam.json
+
+================ RANKED FINDINGS ================
+
+[1] (critical, confidence=high) VERIFIED_REAL
+    getDocument() accepts requesterId but discards it with `void requesterId`, performing no ownership check, so any caller who supplies any valid docId receives the document regardless of who owns it. Sequential IDs make full enumeration of the corpus trivial.
+    reasoning: The `void requesterId` statement and its comment confirm the parameter is intentionally never used for authorization; the lookup is `store.find((d) => d.id === docId)`, keyed only on docId. Requester identity has zero effect on the result. Findings 1, 2, 3, and 5 all describe this single omission from slightly different angles (silent success vs. cosmetic parameter vs. no internal guard), so they consolidate. Finding 4's sequential-ID point is not an independent bug but an amplifier of this same defect: because there is no ownership gate, incrementing docId from 1 upward harvests every document. The neighboring getInvoice() applies exactly the check that is missing here (`inv.ownerId !== requesterId`), proving ownership scoping is the expected house style and this is an omission, not architecture. The path is concretely reachable: any authenticated caller passing another user's docId gets that document now.
+    verdict: verified_real — The finding is fully confirmed by the source. `void requesterId` with its inline comment explicitly documents that the parameter is accepted but never used for authorization, and the lookup `store.find((d) => d.id === docId)` is keyed solely on docId with no ownership filter. The neighboring `getInvoice()` applies `inv.ownerId !== requesterId` proving ownership scoping is the codebase's established pattern, making the omission in `getDocument()` a clear deviation rather than an architectural choice. Any authenticated caller can retrieve any document by its ID, constituting a textbook IDOR.
+      evidence (documents.ts:7): export function getDocument(requesterId: string, docId: number): Doc | undefined {
+  void requesterId; // accepted, never used for authorization
+  return store.find((d) => d.id === docId);
+}
+      evidence (invoices.ts:16): export function getInvoice(requesterId: string, invoiceId: number): Invoice | undefined {
+  const inv = invoices.find((i) => i.id === invoiceId);
+  if (!inv || inv.ownerId !== requesterId) return undefined;
+  return inv;
+}
+
+================ SYNTHESIS ================
+All five critics identified the same core defect: getDocument() accepts a requesterId but explicitly discards it (void requesterId), performing no ownership check, so any caller can retrieve any document by ID. Findings 1-3 and 5 are the same issue at different framings; finding 4 (sequential IDs) is a real amplifier of the same defect, not a separate vulnerability. The neighboring getInvoice() confirms ownership scoping is the house style, making this a reachable omission rather than a design choice.
+
+================ COST BY PIPELINE STAGE ================
+  critic         $0.024132
+  synthesis      $0.031575
+  verification   $0.008223
+  ----------------------------
+  by model:
+    claude-sonnet-4-6          $0.032355
+    claude-opus-4-8            $0.031575
+  TOTAL          $0.063930 (6010 in / 2218 out tokens, 5 calls)
+Findings projection written to benchmark/results/runs/004-missing-ownership-check-idor/2026-07-03-review-only.projection.json
