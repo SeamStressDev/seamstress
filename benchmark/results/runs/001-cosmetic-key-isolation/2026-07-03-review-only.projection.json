@@ -1,0 +1,210 @@
+{
+  "seams": [
+    {
+      "id": "001-cosmetic-key-isolation",
+      "kind": "safety_delivery"
+    }
+  ],
+  "findings": [
+    {
+      "id": "finding-1",
+      "seamId": "001-cosmetic-key-isolation",
+      "description": "sendEmail silently swallows ALL failures — 429s and every other error (auth failure, timeout, DNS, 5xx) all return { sent: false } — and sendCriticalAlert responds only with a console.warn, so a critical security alert can be permanently and silently lost.",
+      "reasoning": "The catch block in mailer.ts has two arms that are behaviorally identical: status===429 returns { sent: false }, and everything else also returns { sent: false }. No error is ever re-thrown. sendCriticalAlert receives that flag, logs a warning, and returns a resolved promise, so the caller cannot tell delivery failed. This is not merely latent: the CRITICAL_KEY being revoked, a provider outage, a network blip, or an account-level 429 (see finding 2) all reach this path during ordinary operation and produce zero delivery with zero actionable signal. This merges the six critics who described the same swallow-and-warn contract; they agree on both mechanism and severity.",
+      "blastRadius": "critical",
+      "confidence": "high",
+      "consequence": "A user whose account is being taken over never receives the warning email, and no operator is alerted, because any provider hiccup makes the send quietly report success.",
+      "locations": [
+        {
+          "path": "mailer.ts",
+          "startLine": 31,
+          "endLine": 47
+        },
+        {
+          "path": "notifications.ts",
+          "startLine": 23,
+          "endLine": 33
+        }
+      ]
+    },
+    {
+      "id": "finding-2",
+      "seamId": "001-cosmetic-key-isolation",
+      "description": "Key isolation is cosmetic: BULK_KEY and CRITICAL_KEY belong to the same provider account (acct_7fb2), so bulk-digest traffic that exhausts account-level rate limits, reputation, or triggers a suspension also blocks the critical key.",
+      "reasoning": "config.ts explicitly states both keys are 'issued under the same provider account (account id acct_7fb2)'. Email providers enforce rate limits, sending reputation, spend caps, and suspensions at the account tier, not per API key. sendNightlyDigest loops over tens of thousands of recipients on BULK_KEY; when the account hits its ceiling the provider returns 429s (or worse) for subsequent requests including those on CRITICAL_KEY. The failure is reachable through the ordinary nightly-digest operation, and it feeds directly into finding 1's silent-drop path — so the 'dedicated key' provides dashboard distinguishability, not delivery isolation. Four critics raised this identically; they split on severity (critical vs high). I cap it just below finding 1 because it is the trigger, and its harmful outcome only manifests through finding 1's swallow — but it is genuinely reachable, so it stays high.",
+      "blastRadius": "high",
+      "confidence": "high",
+      "consequence": "On a night when the marketing digest is large enough to hit the account's sending limit, every critical security alert sent afterward is rejected by the provider and silently dropped.",
+      "locations": [
+        {
+          "path": "config.ts",
+          "startLine": 7,
+          "endLine": 10
+        },
+        {
+          "path": "notifications.ts",
+          "startLine": 8,
+          "endLine": 33
+        }
+      ]
+    },
+    {
+      "id": "finding-3",
+      "seamId": "001-cosmetic-key-isolation",
+      "description": "The 'MUST reach the recipient' contract has no enforcement: no retry, no backoff, no fallback channel, no dead-letter queue, and no durable failure record — a single transient failure produces permanent non-delivery.",
+      "reasoning": "sendCriticalAlert makes exactly one attempt and, on { sent: false }, emits a console.warn and returns void. There is no retry loop, no secondary channel (SMS/push/backup SMTP), and no persisted record an operator could reconcile. This is distinct from finding 1: even if error signaling were fixed, the path would still lack durability and recovery. It is largely an architectural/design gap — the harm requires a failure to first occur (which findings 1 and 2 make reachable), and the missing infrastructure is a 'harden this' concern rather than a specific bad input, so it caps at medium. Two critics raised it; consolidated here.",
+      "blastRadius": "medium",
+      "confidence": "high",
+      "consequence": "When a critical alert fails to send for any reason, nothing ever tries again and no queue holds it, so the alert is lost forever rather than eventually delivered.",
+      "locations": [
+        {
+          "path": "notifications.ts",
+          "startLine": 23,
+          "endLine": 33
+        }
+      ]
+    },
+    {
+      "id": "finding-4",
+      "seamId": "001-cosmetic-key-isolation",
+      "description": "The critical/bulk key separation is enforced only by convention: sendEmail accepts an arbitrary apiKey and CRITICAL_KEY is a freely importable export, so any module could send bulk or test volume on the critical key and consume its rate-limit headroom.",
+      "reasoning": "sendEmail(apiKey, ...) takes any string, and CRITICAL_KEY is exported from config.ts. Nothing prevents a future caller from passing CRITICAL_KEY into bulk sends, defeating the intended isolation. However, no current code path does this — sendNightlyDigest uses BULK_KEY and sendCriticalAlert uses CRITICAL_KEY as intended. This is a latent 'nothing prevents' concern with no present triggering path, so it caps at medium. Only one critic raised it; it is kept as a genuine hardening issue.",
+      "blastRadius": "medium",
+      "confidence": "high",
+      "consequence": "A future or careless code change could route bulk email through the critical key, quietly using up the exact rate-limit headroom the split key was meant to protect.",
+      "locations": [
+        {
+          "path": "mailer.ts",
+          "startLine": 22,
+          "endLine": 47
+        },
+        {
+          "path": "config.ts",
+          "startLine": 9,
+          "endLine": 9
+        }
+      ]
+    }
+  ],
+  "verifications": [
+    {
+      "findingId": "finding-1",
+      "status": "verified_real",
+      "evidence": [
+        {
+          "quotedCode": "  } catch (err) {\n    const status = (err as { status?: number }).status;\n    if (status === 429) return { sent: false };\n    return { sent: false };\n  }",
+          "location": {
+            "path": "mailer.ts",
+            "startLine": 43
+          }
+        },
+        {
+          "quotedCode": "  const result = await sendEmail(CRITICAL_KEY, to, subject, body);\n  if (!result.sent) {\n    // Best effort: note it and move on.\n    console.warn(`[alert] critical alert to ${to} was not delivered`);\n  }",
+          "location": {
+            "path": "notifications.ts",
+            "startLine": 27
+          }
+        }
+      ],
+      "note": "The catch block in mailer.ts is conclusive: both the 429 branch and the catch-all branch return `{ sent: false }` — no error is ever re-thrown and no distinction is made between a rate-limit and a hard failure (auth error, DNS failure, 5xx, etc.). sendCriticalAlert receives that flag, emits only a console.warn, and returns a resolved promise. The caller has no way to detect or retry a failed delivery. The finding's description of mechanism and severity is fully supported by the source."
+    },
+    {
+      "findingId": "finding-2",
+      "status": "judgment_call",
+      "evidence": [
+        {
+          "quotedCode": "// Bulk and critical email were split onto two API keys so the two traffic\n// streams are distinguishable in the provider dashboard. Both keys are issued\n// under the same provider account (account id \"acct_7fb2\").\nexport const BULK_KEY = requireEnv(\"MAIL_BULK_KEY\");\nexport const CRITICAL_KEY = requireEnv(\"MAIL_CRITICAL_KEY\");\nexport const PROVIDER_ACCOUNT = \"acct_7fb2\";",
+          "location": {
+            "path": "config.ts",
+            "startLine": 7
+          }
+        },
+        {
+          "quotedCode": "export async function sendNightlyDigest(recipients: string[], html: string): Promise<void> {\n  for (const to of recipients) {\n    await sendEmail(BULK_KEY, to, \"Your daily digest\", html);\n  }\n}",
+          "location": {
+            "path": "notifications.ts",
+            "startLine": 14
+          }
+        },
+        {
+          "quotedCode": "export async function sendCriticalAlert(to: string, subject: string, body: string): Promise<void> {\n  const result = await sendEmail(CRITICAL_KEY, to, subject, body);\n  if (!result.sent) {\n    // Best effort: note it and move on.\n    console.warn(`[alert] critical alert to ${to} was not delivered`);\n  }\n}",
+          "location": {
+            "path": "notifications.ts",
+            "startLine": 27
+          }
+        },
+        {
+          "quotedCode": "    if (status === 429) return { sent: false };\n    return { sent: false };",
+          "location": {
+            "path": "mailer.ts",
+            "startLine": 37
+          }
+        }
+      ],
+      "note": "The finding is real but hinges on provider-specific account-level enforcement behavior that cannot be confirmed from the source alone. The code explicitly documents that both keys share account 'acct_7fb2', and the comment states the split is purely for 'dashboard distinguishability' — confirming the cosmetic-isolation claim. The nightly digest loop over 'tens of thousands' of recipients on BULK_KEY is described in comments. The silent-drop path in sendCriticalAlert is confirmed: any non-200 response (including a hypothetical account-level 429 on CRITICAL_KEY) yields { sent: false } and only a console.warn. However, whether account-level rate limits actually bleed across API keys depends entirely on the specific provider's enforcement model — some providers do isolate per-key, others enforce at the account tier. The code and comments cannot prove that claim; it is an architectural assumption about external provider behavior. The risk is real and plausible given shared-account design, but the severity hinges on a context a human (or provider documentation) must confirm."
+    },
+    {
+      "findingId": "finding-3",
+      "status": "verified_real",
+      "evidence": [
+        {
+          "quotedCode": "export async function sendCriticalAlert(to: string, subject: string, body: string): Promise<void> {\n  const result = await sendEmail(CRITICAL_KEY, to, subject, body);\n  if (!result.sent) {\n    // Best effort: note it and move on.\n    console.warn(`[alert] critical alert to ${to} was not delivered`);\n  }\n}",
+          "location": {
+            "path": "notifications.ts",
+            "startLine": 27
+          }
+        },
+        {
+          "quotedCode": "* A critical security alert (e.g. an account-takeover warning) that MUST reach\n * the recipient.",
+          "location": {
+            "path": "notifications.ts",
+            "startLine": 23
+          }
+        },
+        {
+          "quotedCode": "if (status === 429) return { sent: false };\n    return { sent: false };",
+          "location": {
+            "path": "mailer.ts",
+            "startLine": 42
+          }
+        }
+      ],
+      "note": "The code directly confirms the finding. The function is explicitly documented as one that 'MUST reach the recipient', yet makes exactly one send attempt, catches all failures (including non-429 errors, which also return { sent: false }), and on failure only emits a console.warn before returning void. There is no retry loop, no fallback channel, no persistence of the failure, and no mechanism for operator reconciliation. The comment 'Best effort: note it and move on' directly contradicts the stated MUST-deliver contract."
+    },
+    {
+      "findingId": "finding-4",
+      "status": "judgment_call",
+      "evidence": [
+        {
+          "quotedCode": "export async function sendEmail(\n  apiKey: string,\n  to: string,\n  subject: string,\n  body: string,\n): Promise<SendResult> {",
+          "location": {
+            "path": "mailer.ts",
+            "startLine": 30
+          }
+        },
+        {
+          "quotedCode": "export const BULK_KEY = requireEnv(\"MAIL_BULK_KEY\");\nexport const CRITICAL_KEY = requireEnv(\"MAIL_CRITICAL_KEY\");",
+          "location": {
+            "path": "config.ts",
+            "startLine": 8
+          }
+        },
+        {
+          "quotedCode": "export async function sendNightlyDigest(recipients: string[], html: string): Promise<void> {\n  for (const to of recipients) {\n    await sendEmail(BULK_KEY, to, \"Your daily digest\", html);\n  }\n}",
+          "location": {
+            "path": "notifications.ts",
+            "startLine": 13
+          }
+        },
+        {
+          "quotedCode": "export async function sendCriticalAlert(to: string, subject: string, body: string): Promise<void> {\n  const result = await sendEmail(CRITICAL_KEY, to, subject, body);\n  if (!result.sent) {\n    // Best effort: note it and move on.\n    console.warn(`[alert] critical alert to ${to} was not delivered`);\n  }\n}",
+          "location": {
+            "path": "notifications.ts",
+            "startLine": 22
+          }
+        }
+      ],
+      "note": "The finding is factually accurate — `sendEmail` accepts any `apiKey` string and `CRITICAL_KEY` is a freely importable export — but no current code path misuses it. `sendNightlyDigest` correctly uses `BULK_KEY` and `sendCriticalAlert` correctly uses `CRITICAL_KEY`. The risk is purely latent/architectural: convention is the only enforcement. Whether this warrants a fix depends on organizational judgment about future-proofing (e.g., making `CRITICAL_KEY` private or wrapping it in a dedicated function). Additionally, there is a separate real issue in the current code: all errors including non-429 failures in `sendEmail` are swallowed and return `{ sent: false }`, and `sendCriticalAlert` only logs a warning on failure rather than retrying or escalating — meaning critical alerts can silently fail right now regardless of key isolation. The key-isolation concern is judgment_call; the silent-failure concern is verified_real but outside the stated finding scope."
+    }
+  ]
+}
