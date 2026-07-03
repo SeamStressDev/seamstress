@@ -9,3 +9,4 @@ date | project | ~duration | shipped | pre-flight result
 2026-07-03 | seam-bug-benchmark (rung 5: review-only runs 002–004; halted for trap-matcher redesign) | ~2h | _(fill)_ | _(fill)_
 2026-07-03 | seam-bug-benchmark (rung 6: asserted_claim matcher + 10-trap migration + frozen corpus) | ~3h | _(fill)_ | _(fill)_
 2026-07-03 | seam-bug-benchmark (field-scope investigation: matcher already full-text; corpus 24→28 cross-field) | ~1h | _(fill)_ | _(fill)_
+2026-07-03 | seam-bug-benchmark (bait session: 3 hard-bait runs, 0 specimens — tool resisted; recall-given-claim evidenced w/ gaps via $0 probe; recall-in-wild open; ~70% prediction WRONG) | _(fill)_ | _(fill)_ | _(fill)_

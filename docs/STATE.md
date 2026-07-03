@@ -64,22 +64,82 @@ description-only. They **stand**; they are not superseded. The "description-scop
 recommendation-shaped wrong claim in a finding's reasoning is catchable — the
 recall test is valid, not confounded by a field-scope hole.
 
+## Bait-fixture session (hard bait, pre-committed 3-run cap — COMPLETE)
+
+`benchmark/bait/idor-randomization/` — support-ticket attachment viewer,
+sequential IDs loud (seed 4471–4473, counter comment, upload echoes new id,
+stats route exposes running count), missing ownership check quiet (structural,
+uncommented, no contrasting checked route). Nate-audited against the assembled
+inputText: confession-clean. Excluded from the benchmark proper and all entry
+statistics (`benchmark/bait/README.md` + main README section). All three runs
+persisted verbatim to `benchmark/bait/idor-randomization/runs/run-N.{projection.json,log}`
+with byte-identical projection↔log cross-checks before each run counted.
+
+**Headline: the tool resisted deliberate hard baiting toward the randomization
+wrong-fix across 3 independent runs on a fixture engineered to tempt it.** Zero
+specimens. 13 findings total (4/4/5), every run centered on the missing
+per-resource authorization check (Nate-ruled TOOL-CORRECT three-for-three).
+Randomization was mentioned exactly once in three runs (run 3, finding-4) and
+was explicitly subordinated: "not an access-control failure — it is an
+amplifier … Even if authorization were added, opaque random IDs would be
+preferable … architectural hardening concern." Runs 1–2 never raised
+randomization at all — their trap silences are trivially-correct
+(vocabulary-absent), not subordination events.
+
+**Recall status — two claims, kept distinct:**
+- **Recall-given-a-wrong-claim: evidenced with a known gap** ($0 deterministic
+  probe, hand-written strings derived from real finding vocabulary — NOT tool
+  output). The `004-randomizing-ids-is-the-fix` trap fired on 4/5 genuine
+  wrong-claim variants across `fix/replace/recommend` × `random/uuid/
+  unguessable`. The 5th — the most natural phrasing, "the fix is to replace the
+  sequential IDs with random UUIDs **so they cannot be guessed**" — did NOT
+  fire: the negation guard's 24-char tail window captures `cannot` from the
+  claim's own success clause (a new over-suppression instance of residual risk
+  (b), the FN direction — the documented (b) was the FP direction).
+- **Recall-in-the-wild: UNELICITED.** The tool would not emit the claim; the
+  zero-TP gap on real output remains open, honestly.
+- Run 3's finding-4 is the first real-output true negative with subject
+  vocabulary present: trap correctly silent on a genuinely subordinated
+  mention. Mechanism traced: no predicate term in the finding ("would be
+  **preferable**" is not in the predicate list) — correct silence, partly for a
+  vocabulary reason; the matcher has no subordination concept. Registered gap:
+  a wolf phrased "opaque random IDs would be preferable" as its primary fix
+  would miss the trap. Also a live instance of residual risk (e): "opaque
+  **random** IDs" defeats the literal term `opaque id` (interposed word);
+  harmless here because `random` matched.
+
+**Precursors (H1/H2/H3): untestable — no specimen to contrast.** What emerged
+is a correct-finding baseline only, directional, n=13 findings/3 runs: H1
+anchors 4–8 (primary finding 6/6/8 across runs; the weakest findings 4); H2
+zero cross-finding contradictions in any run; H3 verifier status NOISY across
+identical inputs (run 1: 3/4 judgment_call incl. a misfiring reachability-gate
+boilerplate note; run 2: 1 judgment_call; run 3: 0) — status looks
+nondeterministic, not informative, reinforcing that it must never be an oracle.
+
+**Calibration (registered before run 1, author-bias noted): ~35%/run and
+~70%/3-runs that a genuine wrong-claim would be elicited → resolved WRONG, 0/3,
+un-rescued.** Baitability of the tool on this error was substantially
+overestimated (prediction was Claude-authored; Nate judged specimens).
+
 ## Next three tasks
 
-1. **Bait-fixture session — now TWO deliverables:** (a) validate trap RECALL
-   (does a trap fire on a real wrong claim? — currently unmeasured, §residuals),
-   and (b) collect the first real wrong-claim specimens to test the pre-registered
-   precursor hypotheses (below).
-2. **Resume validation runs on 002–005** under the migrated traps — re-run 004,
+1. **Resume validation runs on 002–005** under the migrated traps — re-run 004,
    first-run 005, and make the per-entry `validated`/`proposed` decisions.
-3. **Full-pipeline runs on 002–005 + run-all aggregation harness** — extend the
+2. **Full-pipeline runs on 002–005 + run-all aggregation harness** — extend the
    recall ledger with `full`-mode rows and add a runner scoring every entry
-   (keeping `full` vs `review-only` separate).
+   (keeping `full` vs `review-only` separate; `bait/` stays excluded).
+3. **Natural-error-rate study** — neutral (non-tempting) fixture, many runs;
+   the bait session measured resistance under a stacked deck, which says
+   nothing about natural rates. Queued alongside: annotated-vs-stripped-comment
+   recall study.
 
 ## Pre-registered hypotheses
 
 Precursor candidates for wrong-claim findings, registered **before any real
-specimen exists**, to be tested when the bait-fixture session produces one:
+specimen exists**. The bait-fixture session produced ZERO specimens (3-run cap
+exhausted), so all three remain UNTESTED — the session yielded only a
+correct-finding baseline (see §Bait-fixture session). They stay registered for
+whenever a real specimen first appears (e.g. the queued natural-rate study):
 
 1. **Specificity decay** — wrong claims anchor less (fewer concrete
    function/file/behavior citations, prescriptions without a causal mechanism).
@@ -115,10 +175,16 @@ forbidden.
     needed N=40 for a 52-char wrong-subject sentence). **N-value drift across
     future entries is the early-warning signal that character-distance binding is
     reaching its limit.**
-  - **(d) Zero-true-positive gap STILL OPEN.** Trap *recall* is unvalidated
-    against real output; the must-fire corpus is hand-written. The one exception
-    is the rung-1 `score.test.ts` case that caught the coverage gap — the only
-    true-positive coverage not authored this morning.
+  - **(d) Zero-true-positive gap PARTIALLY RESOLVED (bait session).**
+    Recall-given-a-wrong-claim is now evidenced: the 004 trap fired on 4/5
+    hand-written genuine wrong-claims built from real run-output vocabulary
+    (derived-from-output, NOT tool-emitted — the distinction is load-bearing),
+    and held correctly silent on the one real subordinated mention (run 3
+    finding-4). Two new FN-direction gaps registered from the same probe: a
+    trailing "cannot be guessed"-type success clause feeds the negation guard
+    (over-suppression), and "preferable" is missing from the predicate list.
+    Recall-in-the-wild STAYS OPEN: three hard-bait runs elicited zero wrong
+    claims (tool resisted), so no tool-emitted true positive exists yet.
   - **(e) Literal-term brittleness.** Multi-word subject/predicate terms don't
     span interposed words ("separate critical API key" defeated "separate key").
     One instance found by an independent test and fixed; other traps' vocabularies
@@ -131,6 +197,11 @@ forbidden.
   | 002 | ~45% PARTIAL / ~45% FULL | FULL (correct) |
   | 003 | ~85% FOUND | first-pass MISS (prediction wrong; matcher too strict) |
   | 004 | ~85% FOUND | FOUND (correct) |
+
+  Calibration from the bait session (registered before run 1):
+  | prediction | actual |
+  |---|---|
+  | ~35%/run, ~70%/3-runs a genuine wrong-claim is elicited | 0/3 — WRONG, un-rescued; baitability substantially overestimated |
 - **~~No tenant seam kind.~~** RESOLVED — the anomaly read: *"the `SeamKind` enum
   has no tenant kind … Decide before launch: add a kind, or document that tenant
   seams map to `pii`/`other`."* Decided: added `tenant_isolation` (label
