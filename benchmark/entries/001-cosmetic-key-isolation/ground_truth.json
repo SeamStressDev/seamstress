@@ -29,20 +29,22 @@
       "id": "key-split-is-a-defect",
       "description": "Introducing the dedicated key is directionally sensible; the flaw is incompleteness, not the key split. A review must not claim the split itself is a defect/regression to revert.",
       "match": {
-        "all_of": [
-          ["dedicated key", "separate key", "separate .{0,15}key", "second key", "critical key", "key split", "splitting .{0,15}key", "two keys", "distinct key"],
-          ["regression", "unnecessary", "should(?: not|n'?t) have", "shouldn'?t have", "revert", "remove .{0,20}key", "anti-pattern", "no need", "pointless", "redundant"]
-        ]
+        "asserted_claim": {
+          "subject": ["dedicated key", "dedicated keys", "separate key", "separate keys", "key split", "splitting", "two keys", "distinct key", "second key"],
+          "predicate": ["unnecessary", "regression", "revert", "reverted", "anti-pattern", "pointless", "redundant", "remove"],
+          "within": 50
+        }
       }
     },
     {
       "id": "key-hardcoded-or-leaked",
       "description": "The keys load from env correctly. A review must not claim a key is hardcoded, committed, or leaked.",
       "match": {
-        "all_of": [
-          ["hardcod", "hard-cod", "\\bleak", "plaintext", "committed to (?:source|the repo|git)", "checked in", "in (?:the )?source code"],
-          ["key", "secret", "credential", "api.?key", "token"]
-        ]
+        "asserted_claim": {
+          "subject": ["key", "keys", "secret", "secrets", "credential", "credentials", "token"],
+          "predicate": ["hardcoded", "hardcode", "hard-coded", "leaked", "leak", "plaintext", "committed", "checked in", "in source"],
+          "within": 50
+        }
       }
     }
   ]
