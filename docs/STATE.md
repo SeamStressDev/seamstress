@@ -169,19 +169,56 @@ deterministic output on the persisted projection (sha256 d6a68f76…) is FAIL 1/
 and was reproduced for reconciliation before recording — the ledger carries the
 scorer's verdict.
 
+## Run-all aggregation harness (2026-07-03 — SHIPPED)
+
+`benchmark/scoring/run-all.ts` (+ 9 tests): score-only, deterministic
+aggregation over persisted projections and the append-only ledgers. No
+pipeline runs, no API calls; same artifacts → byte-identical report body
+(verified live). Calls the real `scoreEntry`. Design points, enforced by
+tests: **outcome and validity are separate axes** — validity is a per-entry
+column, the aggregate reports run OUTCOMES only, and aggregate lines are
+asserted to never carry the fused "validated" token; **bait paths THROW**
+(never a silent skip); representative-run selection filters ledger rows by
+**GT blob-content equality vs HEAD** (commit-hash equality would false-STALE
+every current row — the validation rows carry the session HEAD, not the last
+GT-touching commit) then takes the **last row in JSONL append order** (002/003's
+real 3-row same-date ledgers are the tiebreaker proof, mirrored in tests);
+**STALE shows both commits** for human judgment and is excluded from the
+scored aggregate's numerator AND denominator; missing projection → "ARTIFACT
+MISSING", a provenance gap, not a fail. Free integrity check: every re-score
+must reproduce its ledger row's recorded `scorer_summary` (`DRIFT` flag
+otherwise) — zero DRIFT on the current board. Deferred: run-fresh mode,
+machine-readable JSON output.
+
+**Benchmark state as the harness reports it (first real report):**
+
+```
+aggregate (run OUTCOMES only): scored 4 of 5 entries — found=3, partial=1; false positives: 0; mode(s): review-only; GT scope: current ground_truth.json content per entry
+STALE (excluded from scored aggregate; needs human look / fresh run): 001-cosmetic-key-isolation
+```
+
+Per-entry: 002/003/004 `found` (all hits verified_real, 0 FPs); 005 `partial`
+(the known must_find vocabulary gap, §Validation session); 001 `STALE` — its
+rows (GT commit 865c540) predate the asserted_claim migration and the
+coverage-gap vocabulary fix (current GT commit 2fc7d61), so the traps those
+runs were scored under no longer exist; artifacts also lost to the rung-5
+/tmp clear. Correct STALE, not softened. Entry validity (4 validated + 005
+proposed) is a separate per-entry column, never summed into the aggregate.
+
 ## Next three tasks
 
-1. **Widen 005's must_find vocabulary** (`identity-absent-from-cache-key`:
+1. **Fresh review-only run of 001 under current ground truth** (~$0.15, gated
+   session) to clear the STALE honestly — its ledger rows predate the
+   migrated traps and its artifacts are gone.
+2. **Widen 005's must_find vocabulary** (`identity-absent-from-cache-key`:
    camelCase `cacheKey`, "omits", "never incorporates") + fresh gated run →
    validity decision; consider a must_find-side vocabulary audit across entries
    (same brittleness family as residual (e)).
-2. **Full-pipeline runs on 002–005 + run-all aggregation harness** — extend the
-   recall ledger with `full`-mode rows and add a runner scoring every entry
-   (keeping `full` vs `review-only` separate; `bait/` stays excluded).
-3. **Natural-error-rate study** — neutral (non-tempting) fixture, many runs;
-   the bait session measured resistance under a stacked deck, which says
-   nothing about natural rates. Queued alongside: annotated-vs-stripped-comment
-   recall study, pre-flight skill.
+3. **Full-pipeline runs on 002–005** — extend the recall ledger with
+   `full`-mode rows (the harness already keeps modes separate). Queued
+   alongside: run-fresh harness mode + JSON output, natural-error-rate study,
+   annotated-vs-stripped-comment recall study, pre-flight skill, trap
+   residuals (a)–(e).
 
 ## Pre-registered hypotheses
 
