@@ -1,0 +1,14 @@
+{
+  "id": "005-identity-absent-cache-key",
+  "kind": "tenant_isolation",
+  "label": "renderAccountPage() — identity absent from the cache key",
+  "sources": [
+    {
+      "path": "cache.ts"
+    },
+    {
+      "path": "accountPage.ts"
+    }
+  ],
+  "inputText": "// file: cache.ts\nconst cache = new Map<string, unknown>();\n\n// Cache key is derived from path + query only — NOT the authenticated user.\n// Personalized responses cached here are served to whoever requests the same\n// path next.\nexport function cacheKey(path: string, query: string): string {\n  return `${path}?${query}`;\n}\n\nexport function getCached(key: string) { return cache.get(key); }\nexport function setCached(key: string, value: unknown) { cache.set(key, value); }\n\n// file: accountPage.ts\nimport { cacheKey, getCached, setCached } from \"./cache\";\n\n// Renders a per-user account page (billing address, last-4 of card). Caches it\n// under a key with no user identity.\nexport function renderAccountPage(userId: string, path: string, query: string): unknown {\n  const key = cacheKey(path, query);\n  const hit = getCached(key);\n  if (hit) return hit; // may be ANOTHER user's account page\n\n  const page = { userId, billingAddress: lookupAddress(userId), cardLast4: lookupCard(userId) };\n  setCached(key, page);\n  return page;\n}\n\nfunction lookupAddress(u: string) { void u; return \"…\"; }\nfunction lookupCard(u: string) { void u; return \"…\"; }\n"
+}

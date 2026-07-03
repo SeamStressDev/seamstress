@@ -1,0 +1,9 @@
+{
+  "id": "005-identity-absent-cache-key",
+  "title": "Identity absent from the cache key on a per-user account page",
+  "seam_kind": "tenant_isolation",
+  "difficulty": 2,
+  "source": "postmortem-derived (catalog case 13: Valve Steam caching incident, Dec 2015)",
+  "validity": "proposed",
+  "validity_evidence": "Reconstruction of catalog case 13 (shared-cache-cross-user-bleed); primary source Valve 'Update on Christmas Issues', Steam news, Dec 2015; author attestation."
+}

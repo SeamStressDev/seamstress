@@ -1,0 +1,48 @@
+{
+  "must_find": [
+    {
+      "id": "identity-absent-from-cache-key",
+      "description": "Authenticated, per-user account pages are cached under a key derived only from path+query, with no user identity. The next requester of the same path is served the previous user's personalized page — cross-tenant bleed.",
+      "match": {
+        "seam_kind": "tenant_isolation",
+        "blast_radius_min": "high",
+        "all_of": [
+          ["cache .?key", "keyed", "cache key"],
+          ["no .{0,15}(user|identity|owner)", "without .{0,10}(user|identity)", "not .{0,10}(include|scoped|keyed).{0,15}(user|identity)", "identity.?(free|less)", "missing .{0,10}(user|identity)", "not user-?scoped"]
+        ]
+      }
+    },
+    {
+      "id": "cross-user-response-served",
+      "description": "The consequence: one authenticated user's personalized response (billing/card data) is served to a different user.",
+      "match": {
+        "all_of": [
+          ["another user", "other user", "different (user|requester)", "cross-?user", "cross-?tenant", "someone else", "next requester"],
+          ["served", "returned", "sees", "receives", "exposed", "leak", "bleed"]
+        ]
+      }
+    }
+  ],
+  "must_not_claim": [
+    {
+      "id": "caching-authenticated-is-inherently-wrong",
+      "description": "BITE-RISK. Caching authenticated responses is legitimate when the key is user-scoped. A review must not claim caching per-user responses is inherently the defect.",
+      "match": {
+        "all_of": [
+          ["cach.{0,25}(authenticated|per-?user|personalized)", "should not cache", "never cache", "caching .{0,15}(is|itself)"],
+          ["inherent", "never", "should not", "cannot .{0,10}cache", "must not cache", "wrong to cache"]
+        ]
+      }
+    },
+    {
+      "id": "load-spike-is-the-bug",
+      "description": "Traffic load revealed the bug; it was not the cause. A review must not attribute the defect to the spike/DoS.",
+      "match": {
+        "all_of": [
+          ["load", "spike", "traffic", "dos", "denial of service", "under .{0,10}(load|pressure)", "high .{0,10}traffic"],
+          ["cause", "the (bug|defect|problem) .{0,10}(is|was)", "due to", "because of", "root cause", "triggered by"]
+        ]
+      }
+    }
+  ]
+}
