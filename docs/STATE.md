@@ -2,48 +2,75 @@
 
 ## Current state
 
-Rung 4 complete: the benchmark now has **five entries** spanning four seam
-kinds, and the engine's `SeamKind` enum gained `tenant_isolation` to express the
-tenant class. Entries: `001` cosmetic-key-isolation (`safety_delivery`,
-**validated**); `002` conjunctive-suppression-unsafe-default (`money_path`);
-`003` idempotency-coverage-asymmetry (`money_path`); `004`
-missing-ownership-check-idor (`auth`); `005` identity-absent-cache-key
-(`tenant_isolation`) — 002–005 all **proposed**, postmortem-derived from the
-public seam-bug catalog. The `tenant_isolation` kind carries a "Cross-tenant
-data" renderer label; `benchmark/schema.md`'s kind list was updated in the same
-commit. Full suite 164 passing (16 files); typecheck clean.
+Rung 5 halted deliberately mid-session after a systemic finding (see headline
+anomaly). Review-only runs were executed against 002–004; entry 001's ledger
+recall decomposition stands. **All of 002–005 remain `proposed`** — no validity
+flips this session, because validation was proceeding by hand-patching traps per
+entry, and three consecutive false positives revealed the trap *mechanism* is
+flawed, not the individual traps. Patching further would be tuning ground truth
+until the tool passes.
 
-Each new entry was authored verbatim from the rung-4 companion spec, validated
-before commit (validateItem passes, empty projection scores FAIL with the exact
-must_find miss count, byte-provenance of `seam.json` diff-clean against the
-frozen fixtures), and committed one at a time. Entry 001's ledger still holds the
-recall decomposition from rung 3 (full/missed + review-only/found → gap is 100%
-detection-recall); 002–005 have no ledger rows yet — their review-only runs are
-the next session.
+Ledger now carries the runs (5 review-only rows, misses and partials included),
+with a new `ground_truth_commit` field making pre-fix/post-fix scoring traceable:
+- 002: partial (2/2 hit, 1 FP) → found (0 FP) after tightening one trap (`8ba9c57`).
+- 003: missed (matcher too strict AND trap too loose) → found after fixing both
+  (`a5aa69e`, `ee9e33a`).
+- 004: partial (1/1 hit, 1 FP) — left as a recorded partial once the trap flaw
+  was known systemic.
+
+The bug the tool found was correct in every case; the failures were in the
+ground-truth matching mechanism.
 
 ## Next three tasks
 
-1. **Gated review-only runs on 002–005** — run each seam through the review
-   pipeline, score against ground truth, tighten the three bite-risk traps
-   against the real findings, and flip each entry to `validated` as it clears.
-2. **Full-pipeline runs on the same four** — extending the recall ledger with
-   `full`-mode rows to decompose detection vs judgment recall per entry.
-3. **Run-all aggregation harness** — now that multiple entries exist, a runner
-   that scores every entry and reports a summary (keeping `full` vs
-   `review-only` separate per the ledger rule).
+1. **Read-only investigation of the trap-matching failures.** Corpus: the three
+   real FP findings verbatim (002 finding-3, 003 finding-1, 004 finding-1) + all
+   ten trap definitions + the scored runs. Deliver: (a) characterization of the
+   failure classes — note they are NOT one class: 002/004 are
+   negation/wrong-subject failures, 003 is a SCOPE failure (an affirmative,
+   correctly-scoped statement misread as global), so any single-mechanism fix
+   must be checked against all three; (b) paper-evaluation of candidate
+   mechanisms (incl. the `asserted_claim` subject/predicate-binding sketch and
+   alternatives) against the full corpus BEFORE any scorer code; (c) prior-art
+   check in the engine's existing matching internals; (d) note that ZERO
+   true-positive trap firings have ever been observed — all true-positive
+   behavior is hand-written controls only — so the investigation must also
+   address how real wrong-claim findings can be obtained or simulated. Design
+   and implementation FOLLOW this investigation.
+2. **Resume validation after the redesign** — re-run 004, run 005 for the first
+   time, and make the per-entry `validated`/`proposed` decisions on the
+   redesigned mechanism.
+3. **Full-pipeline runs on 002–005 + run-all aggregation harness** — extend the
+   recall ledger with `full`-mode rows and add a runner scoring every entry
+   (keeping `full` vs `review-only` separate).
 
 ## Open anomalies
 
+- **Trap mechanism systemically flawed (HEADLINE).** Vocabulary co-occurrence
+  (`all_of` groups) cannot bind predicate to subject or detect negation; three
+  consecutive case-(b) false positives (002 finding-3, 003 finding-1, 004
+  finding-1) where the tool made the *correct* point and the trap fired on word
+  co-occurrence. **No trap has ever fired correctly on real output — zero true
+  positives observed across all runs; trap true-positive behavior is validated
+  only by hand-written control strings.** Next task: read-only investigation (see
+  next tasks); `asserted_claim` is a candidate mechanism, not a decision.
+
+  Calibration (registered prediction vs. actual, primary must_find item):
+  | entry | prediction | actual |
+  |---|---|---|
+  | 002 | ~45% PARTIAL / ~45% FULL | FULL (correct) |
+  | 003 | ~85% FOUND | first-pass MISS (prediction wrong; matcher too strict) |
+  | 004 | ~85% FOUND | FOUND (correct) |
 - **~~No tenant seam kind.~~** RESOLVED — the anomaly read: *"the `SeamKind` enum
   has no tenant kind … Decide before launch: add a kind, or document that tenant
   seams map to `pii`/`other`."* Decided: added `tenant_isolation` (label
   "Cross-tenant data"); entry 005 exercises it end to end.
-- **002–005 ground truth untested against real findings.** These entries scored
-  only against empty/synthetic projections so far. Three bite-risk `must_not_claim`
-  traps are deliberately loose pending the gated review-only runs: 002
-  `fix-is-documentation-or-training`, 004 `randomizing-ids-is-the-fix`, 005
-  `caching-authenticated-is-inherently-wrong`. They get tightened against real
-  findings, not before.
+- **002–005 validity still unconfirmed.** 002 and 003 reached a clean `found`
+  only via hand-patched traps now deemed unreliable; 004 is a recorded partial;
+  005 has not run. Validity decisions are **blocked on the matcher redesign**.
+  Correction to the rung-4 note: the "bite-risk" looseness was not confined to
+  the three flagged traps — it is the whole mechanism; every trap regex needs the
+  same scrutiny under the redesign.
 - **Detector kind list omits `tenant_isolation`.** The detection prompt's kind
   list is unchanged, so full-pipeline runs cannot classify tenant seams until the
   detection-signal work lands; review-only runs are unaffected (`seam.json`
