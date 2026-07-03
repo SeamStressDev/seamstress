@@ -18,20 +18,22 @@
       "id": "randomizing-ids-is-the-fix",
       "description": "BITE-RISK. Unguessable IDs are mitigation, not authorization. A review must not present randomizing/UUID-ing the IDs as the fix for the missing ownership check.",
       "match": {
-        "all_of": [
-          ["random", "uuid", "unguessab", "non-?sequential", "opaque .{0,10}id", "hard to guess"],
-          ["fix", "solution", "should .{0,10}(use|be|make)", "instead of", "replace .{0,10}id", "recommend", "just .{0,10}(use|make)"]
-        ]
+        "asserted_claim": {
+          "subject": ["random", "randomize", "randomizing", "uuid", "uuids", "unguessable", "non-sequential", "opaque id", "opaque ids"],
+          "predicate": ["fix", "solution", "should", "instead of", "replace", "recommend"],
+          "within": 50
+        }
       }
     },
     {
       "id": "neighboring-route-is-broken",
       "description": "getInvoice correctly scopes to the owner. A review must not flag the invoice route as the defect.",
       "match": {
-        "all_of": [
-          ["getInvoice", "invoice .{0,10}(route|path|endpoint|function)"],
-          ["broken", "defect", "vulnerab", "missing .{0,10}check", "flaw", "insecure", "IDOR"]
-        ]
+        "asserted_claim": {
+          "subject": ["getinvoice", "invoice route", "invoice path", "invoice endpoint", "invoice function"],
+          "predicate": ["broken", "defect", "vulnerable", "vulnerability", "flaw", "insecure", "idor"],
+          "within": 40
+        }
       }
     }
   ]
