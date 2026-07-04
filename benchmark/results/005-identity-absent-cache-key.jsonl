@@ -1,1 +1,2 @@
 {"date": "2026-07-03", "engine_commit": "514d674", "ground_truth_commit": "514d674", "mode": "review-only", "outcome": "partial", "scorer_summary": "[005-identity-absent-cache-key] FAIL — 1/2 must_find hit, 1 missed, 0 false positive(s)", "cost_usd": 0.1051}
+{"date": "2026-07-03", "engine_commit": "ae24eb2", "ground_truth_commit": "ae24eb2", "mode": "review-only", "outcome": "validated", "scorer_summary": "[005-identity-absent-cache-key] PASS — 2/2 must_find hit, 0 missed, 0 false positive(s)", "cost_usd": 0.0900}

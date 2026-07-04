@@ -4,6 +4,6 @@
   "seam_kind": "tenant_isolation",
   "difficulty": 2,
   "source": "postmortem-derived (catalog case 13: Valve Steam caching incident, Dec 2015)",
-  "validity": "proposed",
-  "validity_evidence": "Reconstruction of catalog case 13 (shared-cache-cross-user-bleed); primary source Valve 'Update on Christmas Issues', Steam news, Dec 2015; author attestation."
+  "validity": "validated",
+  "validity_evidence": "Reconstruction of catalog case 13 (shared-cache-cross-user-bleed); primary source Valve 'Update on Christmas Issues', Steam news, Dec 2015; author attestation. Validation under migrated asserted_claim traps + must_find widened for phrasing coverage: review-only run 2026-07-03, engine_commit ae24eb2, outcome validated (ground_truth_commit ae24eb2)."
 }
