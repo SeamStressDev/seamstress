@@ -236,20 +236,69 @@ aggregate (run OUTCOMES only): scored 5 of 5 entries — found=3, found-unverifi
 Validity column (separate axis, never aggregated): 001–004 `validated`,
 005 `proposed`.
 
+## Entry 005 must_find widening + re-run (2026-07-03 — VALIDATED)
+
+The `identity-absent-from-cache-key` must_find matched a narrow vocabulary that
+missed legitimate correct phrasings (camelCase `cacheKey`, "omits user
+identity", "never incorporates userId"). Widened for **phrasing coverage, not
+to green a run** (commit `ae24eb2`): group 1 `cache .?key` → `cache.?key`
+(covers `cacheKey`); group 2 gains a verb-anchored
+`(not|never) .{0,15}(include|incorporat|scoped|keyed|wired|derived|based).{0,15}(user|identity)`
+(bare "never … user" does NOT fire — keeps safety claims out) and
+`omits? .{0,15}(user|identity|owner)`. Discipline check: a hand-written CORRECT
+finding ("cache key … hashes path with the authenticated user's id, correctly
+isolated") still MISSES — coverage added without firing on an
+identity-INCLUDING cache finding.
+
+Fresh gated review-only run ($0.0900, engine_commit + ground_truth_commit
+`ae24eb2`) scored **`PASS — 2/2 must_find hit, 0 missed, 0 false positive(s)`**,
+both hits `verified_real`, 0 FP. Convergent evidence the widening is genuine,
+not overfit: the INDEPENDENT run independently reached for both `cacheKey` and
+"omits user identity" (matched by `cache.?key`, `omits …identity`, and the
+pre-existing `missing …identity`). **005 flipped `proposed → validated`** (Nate
+ruled). This is 005's first validation — it was never validated before; the
+prior "partial" was a must_find vocabulary gap, now resolved by real widening,
+not by loosening to force green.
+
+**Board — 5/5 scored, genuinely current (0 STALE, 0 partial, 0 DRIFT):**
+
+```
+aggregate (run OUTCOMES only): scored 5 of 5 entries — found=4, found-unverified=1; false positives: 0; mode(s): review-only; GT scope: current ground_truth.json content per entry
+```
+
+Validity column: all five `validated`. The earlier launch-board dilemma (a
+`partial` on the board needing inline framing) is **dissolved** — 5/5 scored is
+current, and the one non-clean outcome (001 `found-unverified`) is the honest
+structural-verifiability limit, not a recall gap.
+
+**Harness gap found by collision (queued):** the harness addresses run
+artifacts by reconstructing `<date>-<mode>.projection.json`, which does not
+uniquely identify a run when two same-day, same-mode runs exist for one entry
+(005 had exactly this). Tonight resolved by Option 1 — today's run overwrote the
+canonical path; git history preserves yesterday's superseded pre-widening
+artifact. **Row 0 of 005's ledger (the pre-widening partial) is now
+provenance-orphaned** — its recorded date+mode no longer resolves to the
+artifact it was scored against, which was overwritten by today's run. The
+harness is unaffected (selects the correct current row by GT-blob +
+append-order), but the raw JSONL should not be read as file-accurate for that
+row; the original artifact is recoverable from git history at the
+validation-session commit. Durable fix queued: address artifacts by an explicit
+path field or append-index in the ledger row, not reconstructed date-mode.
+
 ## Next three tasks
 
-1. **Widen 005's must_find vocabulary** (`identity-absent-from-cache-key`:
-   camelCase `cacheKey`, "omits", "never incorporates") + fresh gated run →
-   validity decision; consider a must_find-side vocabulary audit across entries
-   (same brittleness family as residual (e)).
-2. **001 structural-verifiability decision** — pin provider rate-limit
+1. **001 structural-verifiability decision** — pin provider rate-limit
    semantics in the fixture (own session) or document 001 as
    judgment_call-bound; affects whether `found-unverified` is 001's ceiling.
+2. **Harness artifact-addressing fix** — explicit path field or append-index in
+   the ledger row instead of reconstructed `<date>-<mode>` (real design gap,
+   found by same-day-rerun collision this session).
 3. **Full-pipeline runs on 002–005** — extend the recall ledger with
    `full`-mode rows (the harness already keeps modes separate). Queued
    alongside: run-fresh harness mode + JSON output, natural-error-rate study,
-   annotated-vs-stripped-comment recall study, pre-flight skill, trap
-   residuals (a)–(e).
+   annotated-vs-stripped-comment recall study, pre-flight skill, must_find-side
+   vocabulary audit across entries (same brittleness family as residual (e)),
+   trap residuals (a)–(e).
 
 ## Pre-registered hypotheses
 
