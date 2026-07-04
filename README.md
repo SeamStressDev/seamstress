@@ -60,15 +60,72 @@ The load-bearing principle is the verification gate: **a finding is only shown a
 
 ## What it does and doesn't do
 
+SeamStress is deliberately narrow. It looks for **business-logic and "seam"
+bugs** — the places where money, authorization, and multi-tenant data cross
+boundaries and the individual pieces are each correct but the combination is
+dangerous. It is built to reason about those seams with judgment rather than
+flood you with noise.
+
 **Does:**
 - Detect and review the high-risk seams in a repo — auth/authorization, money paths, PII handling, data deletion, critical delivery.
 - Verify each surfaced issue against the real code, with the offending lines quoted; rank by severity.
 - Emit a plain-language Markdown or self-contained HTML report a developer (or a non-security founder) can act on.
 
-**Doesn't (be honest about the edges):**
-- It reasons about the **code you point it at**. It can't see intent that lives outside the code — issue trackers, ADRs, a Slack thread explaining why something is the way it is. Treat a finding as "worth checking," not gospel.
+Being honest about the limits is part of the tool:
+
+- **It reasons about code, not intent.** A finding can be *code-accurate* and
+  still describe something you decided on purpose. SeamStress cannot see design
+  decisions that live outside the code — issue trackers, architecture records,
+  a documented tradeoff. Treat findings as **questions the code raises**, not
+  verdicts: "the code permits X — is that intended?" The final call is yours.
+
+- **It is not a general security scanner.** SeamStress does not replace SAST
+  tools, dependency scanners, or secret detection. It looks at a specific,
+  hard-to-automate class of bug that those tools structurally tend to miss —
+  and it will miss things they catch. Use it alongside them, not instead of
+  them.
+
 - Detection is **best-tuned for JavaScript/TypeScript (Next.js) and Python (Django)**. On other stacks it still runs, but the report says so and treats itself as a floor on the risk, not a complete inventory — the heuristic can miss seams whose signals it doesn't recognize.
+
 - It's **young** and validated on a small number of repos. It finds real bugs, but it is not a substitute for a security audit.
+
+- **It cannot see runtime behavior.** Anything that only manifests during
+  execution — timing, live configuration, actual traffic — is outside static
+  analysis. A seam that looks fine in source may still fail under load, and vice
+  versa.
+
+- **Verification has a ceiling.** SeamStress flags when it cannot confirm a
+  finding against the code alone (for example, behavior that depends on an
+  external provider's semantics). An unconfirmed finding is not a false alarm —
+  it's an honest "worth a human look."
+
+For evidence of how SeamStress performs — including where it fails — see the
+[benchmark and its public results ledger](benchmark/README.md), which records
+misses alongside hits.
+
+## Responsible Use
+
+SeamStress performs **static analysis** of source code you provide. It reads
+code; it does not execute it, connect to any system, or interact with anything
+running. It cannot access a system, a network, or any code you do not already
+have in hand.
+
+That said, running an analysis is your responsibility:
+
+- **Use SeamStress on code you own or are authorized to review.** You are
+  responsible for ensuring you have the right to analyze any code you run it
+  against — the same responsibility you'd have opening that code in an editor.
+- **SeamStress grants no access.** It analyzes source you already possess. It
+  is not a scanner, a probe, or an exploitation tool, and it does nothing to any
+  live system.
+- **Findings are yours to handle responsibly.** If you analyze code you don't
+  own — for example, a public open-source project — treat any real finding as a
+  security disclosure, not a publication. See ["Reporting findings in code you
+  don't own" in SECURITY.md](SECURITY.md#reporting-findings-in-code-you-dont-own).
+
+SeamStress is a tool for building safer software, offered freely in that spirit.
+Using it to help others — or yourself — write more trustworthy code is exactly
+the point.
 
 ## Pre-launch seam review
 
