@@ -7,8 +7,8 @@
         "seam_kind": "tenant_isolation",
         "blast_radius_min": "high",
         "all_of": [
-          ["cache .?key", "keyed", "cache key"],
-          ["no .{0,15}(user|identity|owner)", "without .{0,10}(user|identity)", "not .{0,10}(include|scoped|keyed).{0,15}(user|identity)", "identity.?(free|less)", "missing .{0,10}(user|identity)", "not user-?scoped"]
+          ["cache.?key", "keyed", "cache key"],
+          ["no .{0,15}(user|identity|owner)", "without .{0,10}(user|identity)", "(not|never) .{0,15}(include|incorporat|scoped|keyed|wired|derived|based).{0,15}(user|identity)", "omits? .{0,15}(user|identity|owner)", "identity.?(free|less)", "missing .{0,10}(user|identity)", "not user-?scoped"]
         ]
       }
     },
