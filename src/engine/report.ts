@@ -23,12 +23,11 @@
  * - Plain language, consequence-first. Describe impact, not methodology:
  *   "anyone logged in can change their own role to admin", never "an IDOR in the
  *   portal action" or "the synthesis surfaced…". Internal jargon is softened.
- * - Lead with the punch. An executive summary of ONLY the critical+high verified
- *   findings comes first — the 2-3 most consequential issues — so a
- *   skimming reader sees them before a wall of lower-severity notes. The goal
- *   is "judgment, not noise"; the report has to embody it.
- * - Verified issues are the headline, each backed by the exact quoted code — the
- *   trust signal that separates SeamStress from a scanner that guesses. The
+ * - Lead with the most consequential findings. An executive summary of ONLY the
+ *   critical+high verified findings comes first — the 2-3 highest-impact
+ *   issues — so a skimming reader sees them before a wall of lower-severity
+ *   notes. The report has to stay curated, not exhaustive.
+ * - Verified issues are the headline, each backed by the exact quoted code. The
  *   medium/low tail and judgment calls ("worth a look") are kept below, collapsed
  *   to compact one-liners so they don't drown the headline. Nothing unverified is
  *   presented as fact.

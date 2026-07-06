@@ -305,7 +305,7 @@ describe("renderSeamMap — rendered report", () => {
     // The verified finding's plain description is in the headline section.
     expect(report).toContain("Verified issues");
     expect(report).toContain("anyone logged in can change their own role to admin");
-    // Quoted real code is shown as proof (the trust signal).
+    // Quoted real code is shown as proof.
     expect(report).toContain("setRole");
     // No internal jargon leaks into the report text.
     expect(report).not.toMatch(/synthesis/i);
