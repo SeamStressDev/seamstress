@@ -47,6 +47,10 @@ included** — the point is to measure recall honestly over time, so `full`
 (whole-pipeline) and `review-only` (judgment-only) runs are reported separately,
 never blended. See [`schema.md`](./schema.md) for the field contract.
 
+For narrative case studies of this methodology applied to SeamStress's own
+code, including a recorded miss that traces back to this ledger, see
+[`examples/`](../examples/README.md).
+
 ## Bait fixtures (excluded from the benchmark)
 
 `bait/` holds **elicitation instruments**: deliberately tempting fixtures used

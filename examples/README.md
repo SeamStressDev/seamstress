@@ -9,10 +9,53 @@ better; each artifact is labeled with what it ran on, at which commit, and when.
 
 ---
 
-## Case study 1 — SeamStress auditing its own report generator
+## Case study 1: SeamStress auditing its own verification gate
+
+The riskiest code in SeamStress is the part that decides whether a finding may
+be shown as `verified_real`. The whole tool rests on one promise: anything
+presented as verified was checked against your actual code, with the lines
+quoted. If that gate has an edge case, the tool can show a confident claim it
+never earned, and it renders as success, silently. So before the repo went
+public we pointed the engine at that gate: we assembled the trust-gate code as a
+seam and ran the real pipeline against it (blind critics, synthesis, per-finding
+verification). It found two Critical defects in its own foundation.
+
+**One: a verdict could be marked verified with no proof behind it.** The status
+authority (`effectiveStatus`) trusted a `verified_real` verdict on a finding-ID
+match alone and never looked at the evidence, and the schema allowed an empty
+evidence list or an empty quote. A finding with no quoted code could land in the
+headline under copy promising the exact lines as proof. Fixed in
+[`5fdd680`](https://github.com/SeamStressDev/seamstress/commit/5fdd680): the
+authority now certifies a verdict only when at least one non-empty quote backs
+it. Pinned by tests in `src/types/types.test.ts` ("refuses verified_real when
+the evidence array is empty", "refuses verified_real when the only evidence has
+an empty/whitespace quote", "still certifies a verdict backed by real quoted
+code").
+
+**Two: proof could attach to the wrong finding.** Finding IDs were namespaced by
+a slug of the file path, and two different paths could slug to the same value, so
+one seam's verified status and quoted evidence could bind to another seam's
+finding. Reaching it needs a slug-colliding pair of paths, but the outcome is
+fabricated proof on a finding that was never verified. Fixed in
+[`bb9c838`](https://github.com/SeamStressDev/seamstress/commit/bb9c838): IDs are
+now keyed on the seam's position, which is unique by construction. Pinned by
+`src/engine/detector.test.ts` ("keeps verifications bound to the right finding
+when two seams share a slugged id").
+
+Both fixes are reversion-proven: revert the fix and the test fails. One related
+gap was found and knowingly left: an orphaned verification (its finding ID
+matching nothing) degrades that finding to `unverified`. That is under-reporting,
+the fail-safe direction, not a confident lie, so it was noted rather than fixed.
+The full engineering record, including the verifier's quoted evidence for each
+finding, is in
+[`docs/seamstress-trust-gate-trio.md`](../docs/seamstress-trust-gate-trio.md).
+
+---
+
+## Case study 2: SeamStress auditing its own report generator
 
 Before the repo went public, we ran the review trio (blind critics → synthesis →
-verification) against SeamStress's single riskiest surface: the HTML report
+verification) against another risky surface: the HTML report
 generator (`src/engine/report.ts`), where untrusted text — model-emitted finding
 descriptions, verbatim code quoted from a stranger's repo, file paths — is
 interpolated into an HTML document a user opens in a browser. It's our own code,
@@ -84,9 +127,17 @@ incapable of containing HTML-significant characters"), and the synthesis reads:
 `<title>` contexts used here — there is no reachable XSS on the current code
 path."*
 
+### A note on provenance
+
+These two self-audits are historical runs, and their raw run outputs were not
+preserved as files. The verifiable record is the code: the fixing commits linked
+above and the behavior-pinning tests named, which anyone can inspect and run.
+Runs since then persist their outputs; the benchmark (below) keeps every run's
+projection and log under `benchmark/results/runs/`.
+
 ---
 
-## Case study 2 — what a finding looks like
+## Case study 3: what a finding looks like
 
 [`example-report.html`](./example-report.html) is a real rendered SeamStress
 report: a run against a small, deliberately vulnerable **synthetic demo app**
@@ -109,7 +160,7 @@ not a claim about detection rates on large real codebases.
 
 ---
 
-## The anti-noise check — run against itself
+## The anti-noise check: run against itself
 
 Mapped against its **own repository** (46 files scanned, current code
 `346db9e`, 2026-07-02), SeamStress reports **0 seams and 0 findings**. That is
@@ -117,6 +168,27 @@ the correct answer: this repo is a CLI tool with no money, auth, or multi-tenant
 surface — the detector examined the candidate files and rejected them all. The
 tool reports nothing when there's nothing, rather than inventing findings to
 look busy.
+
+---
+
+## A recorded miss
+
+The tool has documented failures, and they are on the public record rather than
+edited out. The benchmark's [results ledger](../benchmark/README.md#results-ledger)
+is append-only and includes misses.
+
+Two concrete cases. Entry 001 (cosmetic key isolation): on a full-pipeline run
+the detector's keyword pre-filter scored the fixture at zero and never sent it to
+review, so it was scored a miss (0/2, and $0.00 because no model was ever called).
+Handed the seam directly in review-only mode, the tool finds it, so this is a
+detection-recall miss at the pre-filter stage, not a reasoning failure, and it is
+the concrete instance of a limit we track. Entry 005 (identity absent from a
+cache key): an early run scored `partial` (1 of 2), hitting the consequence but
+missing the mechanism. The cause was our scoring vocabulary, not the finding; the
+tool had described the bug correctly. We widened the match criteria for phrasing
+coverage, verified the widening did not make the matcher fire on a correct
+control, and a fresh independent run then scored it clean. The whole arc, miss
+included, is in that entry's ledger.
 
 ---
 
