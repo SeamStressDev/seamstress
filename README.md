@@ -1,6 +1,16 @@
 # SeamStress
 
-Seam-scoped code review. It finds the **business-logic and money-path bugs that scanners and linters miss** — the ones that live where money, auth, and multi-tenant data intersect, and that only show up if you actually reason about the code.
+**SeamStress finds the bug that double-charges your customers.**
+
+Not the crash. The quiet one. The payment that fires twice on a retry, the auth
+check that's missing on one route out of forty, the cache key that serves one
+tenant's data to another. Each piece looks correct. The combination isn't.
+These are seam bugs, and they live where money, authorization, and tenant
+isolation cross boundaries. Linters and scanners miss them by design.
+
+SeamStress ships with a [public benchmark](benchmark/README.md) that grades it
+honestly. Real bugs reconstructed from documented incidents, with misses
+recorded next to hits.
 
 A linter matches patterns. SeamStress reads the high-risk boundaries of your codebase — a Stripe webhook, a checkout action, an upload quota, a per-user data query — and asks the questions a careful reviewer would: *does this guard actually hold? can one user reach another's data? does this fail silently? is the quota real or cosmetic?* Then it checks each answer against your real code and only reports what it can prove, quoting the exact lines.
 
