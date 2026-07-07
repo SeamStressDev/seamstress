@@ -65,7 +65,7 @@ description-only. They **stand**; they are not superseded. The "description-scop
 recommendation-shaped wrong claim in a finding's reasoning is catchable — the
 recall test is valid, not confounded by a field-scope hole.
 
-## Bait-fixture session (hard bait, pre-committed 3-run cap — COMPLETE)
+## Bait-fixture session (hard bait, pre-committed 3-run cap, COMPLETE)
 
 `benchmark/bait/idor-randomization/` — support-ticket attachment viewer,
 sequential IDs loud (seed 4471–4473, counter comment, upload echoes new id,
@@ -122,7 +122,7 @@ nondeterministic, not informative, reinforcing that it must never be an oracle.
 un-rescued.** Baitability of the tool on this error was substantially
 overestimated (prediction was Claude-authored; Nate judged specimens).
 
-## Validation session (2026-07-03, engine_commit 514d674 — COMPLETE)
+## Validation session (2026-07-03, engine_commit 514d674, COMPLETE)
 
 Four gated review-only runs (002/003/004/005, one clean scoring each, no
 re-runs), scored against the migrated `asserted_claim` traps AS-IS. Artifacts
@@ -169,7 +169,7 @@ deterministic output on the persisted projection (sha256 d6a68f76…) is FAIL 1/
 and was reproduced for reconciliation before recording — the ledger carries the
 scorer's verdict.
 
-## Run-all aggregation harness (2026-07-03 — SHIPPED)
+## Run-all aggregation harness (2026-07-03, SHIPPED)
 
 `benchmark/scoring/run-all.ts` (+ 9 tests): score-only, deterministic
 aggregation over persisted projections and the append-only ledgers. No
@@ -205,7 +205,7 @@ runs were scored under no longer exist; artifacts also lost to the rung-5
 /tmp clear. Correct STALE, not softened. Entry validity (4 validated + 005
 proposed) is a separate per-entry column, never summed into the aggregate.
 
-## Entry 001 refresh (2026-07-03 — STALE cleared by fresh run)
+## Entry 001 refresh (2026-07-03, STALE cleared by fresh run)
 
 One gated review-only run of 001 under current ground truth ($0.1796;
 engine_commit 441502f, ground_truth_commit 2fc7d61; artifacts persisted +
@@ -236,7 +236,7 @@ aggregate (run OUTCOMES only): scored 5 of 5 entries — found=3, found-unverifi
 Validity column (separate axis, never aggregated): 001–004 `validated`,
 005 `proposed`.
 
-## Entry 005 must_find widening + re-run (2026-07-03 — VALIDATED)
+## Entry 005 must_find widening + re-run (2026-07-03, VALIDATED)
 
 The `identity-absent-from-cache-key` must_find matched a narrow vocabulary that
 missed legitimate correct phrasings (camelCase `cacheKey`, "omits user

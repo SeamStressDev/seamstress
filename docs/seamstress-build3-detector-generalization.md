@@ -1,8 +1,8 @@
-# Build 3 — detector live validation (does it generalize off the Stripe stack?)
+# Build 3: detector live validation (does it generalize off the Stripe stack?)
 
 The detector was validated live on two repos with known ground truth: the Next.js/Stripe starter (Phase 2 regression) and a **non-Stripe** stack (a Django REST example app) — the carry-forward test of whether the heuristic finds real seams when the signals aren't familiar Stripe/Next idioms.
 
-## Repo 1 — a public Next.js/Stripe starter — regression
+## Repo 1: a public Next.js/Stripe starter, regression
 
 The server-scope refinement worked exactly as intended:
 
@@ -16,7 +16,7 @@ The server-scope refinement worked exactly as intended:
 
 Recall held at 100% (webhook, checkout, customer-portal, role change, account deletion, auth boundary), precision sharply up (the UI false positives are gone), cost down. The judge also pinpointed the *actual* known vulnerabilities — the `open-customer-portal` IDOR ("one user accessing another's portal via arbitrary userStripeId") and the `update-user-role` privilege escalation ("any authenticated user can change their own role to admin"). Substantive, not superficial.
 
-## Repo 2 — a Django REST example app — the generalize test
+## Repo 2: a Django REST example app, the generalize test
 
 **This is the important finding.** On first run the hybrid detector **did NOT generalize** — and the miss was entirely at the heuristic stage:
 

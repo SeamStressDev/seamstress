@@ -1,4 +1,4 @@
-# Phase 1 — Verification-tier experiment
+# Phase 1: Verification-tier experiment
 
 **Question:** verification (the trust gate) is the single largest cost line in a review (Opus, ~37% of spend). Before Build 3's detector multiplies seams, can verification drop to a cheaper model **without losing accuracy or evidence rigor**?
 
@@ -47,7 +47,7 @@ Relative cost of the verification pass, critics + synthesis held fixed:
 
 **Projected review impact:** moving verification to **Sonnet** drops it from **~37% → ~21%** of total review spend; **Haiku** would drop it to **~9%**. The critic and synthesis stages are unchanged either way.
 
-## Decision — drop default verification to **Sonnet 4.6**
+## Decision: drop default verification to **Sonnet 4.6**
 
 Sonnet reproduced **every verdict on the critical/high core findings** (incl. the cosmetic-quota known-hit) with **equally rigorous, real-source evidence**, at **54% lower cost**. Its only divergences from Opus were two `verified_real`/`judgment_call` boundary calls on lower-priority findings — not the failure mode that matters for a trust gate. That clears the bar the task set ("reproduces the verdicts with equally-rigorous evidence → change the default").
 

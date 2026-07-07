@@ -1,4 +1,4 @@
-# The ONE Trio — auditing the trust gate
+# The ONE Trio: auditing the trust gate
 
 **Target (highest blast radius):** the verification trust gate — `effectiveStatus`
 (`src/types/status.ts`), the evidence schema (`src/types/verification.ts`), the
@@ -19,7 +19,7 @@ seam and ran the real pipeline (`npm run review`): 3 blind decorrelated critics 
 synthesis → per-finding verification, every verdict quoting the actual code.
 **8 model calls** — 3 critic + 1 synthesis + 4 verification.
 
-## Central question — answered
+## Central question: answered
 
 > **Can a finding EVER render to a user as `verified_real` (with proof) when
 > verification did not establish it — OR can evidence attach to the WRONG
@@ -32,7 +32,7 @@ tests.
 
 ## Verified findings
 
-### 🔴 Critical — `verified_real` with no evidence renders as proven (fixed: `5fdd680`)
+### 🔴 Critical: `verified_real` with no evidence renders as proven (fixed: `5fdd680`)
 
 `effectiveStatus` is documented as the SOLE authority but returned `result.status`
 purely on a `findingId` match — **it never inspected the evidence.** The schema
@@ -60,7 +60,7 @@ quoted-code evidence; otherwise the finding derives `unverified`. Checking at
 `effectiveStatus` (not only the schema) also catches the whitespace-`quotedCode`
 variant a naive `.min(1)` would miss.
 
-### 🔴 Critical — slug collision misattaches evidence to the wrong finding (fixed: `bb9c838`)
+### 🔴 Critical: slug collision misattaches evidence to the wrong finding (fixed: `bb9c838`)
 
 `mergeReviews` namespaced finding IDs with `<seam.id>:` only. But `seamIdFor`
 lowercases and collapses every non-alphanumeric run to `-`, so two distinct paths

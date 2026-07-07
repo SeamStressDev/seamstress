@@ -1,4 +1,4 @@
-# Phase 2 — Detection-approach validation (hybrid: heuristic pre-filter → LLM judgment)
+# Phase 2: Detection-approach validation (hybrid: heuristic pre-filter → LLM judgment)
 
 **Question:** seam *detection* (finding which code IS a seam) is unproven — every run so far hand-located the seam. Before building a detector, does the **hybrid** approach (cheap heuristic narrows WHERE to look → LLM confirms/classifies each candidate) find the real seams **without flooding false positives**? Same FP discipline that gated the review before Build 2.
 
@@ -8,15 +8,15 @@
 
 > Caveat up front: **n=1 repo.** One disciplined pass tells us whether the approach is sound; a durable detector wants a couple more repos (esp. non-Stripe stacks).
 
-## Stage 1 — heuristic pre-filter: 184 → 28 candidates (15%)
+## Stage 1: heuristic pre-filter, 184 → 28 candidates (15%)
 
 The heuristic cut the search space by 85% and **kept every known seam**. The top of the ranked list is exactly the ground truth (webhook 14, generate-user-stripe 11, open-customer-portal 10, update-user-role 9). Excluded near-misses (score 1–2) were validation schemas, config, and UI buttons — no real server-side seam scored below threshold.
 
 **Heuristic recall: complete** for this repo. The caveat: this works *because* these seams carry strong surface signals (`stripe` imports, `"use server"`, `webhook` paths). A seam hiding in a generically-named file with no such signal could slip the pre-filter — the inherent risk of a cheap heuristic (see Refinement).
 
-## Stage 2 — LLM judgment: 28 candidates → 19 seams, 9 rejected
+## Stage 2: LLM judgment, 28 candidates → 19 seams, 9 rejected
 
-### Recall — found every known seam (the costly failure did not happen)
+### Recall: found every known seam (the costly failure did not happen)
 
 | Ground-truth seam | Found? | Kind assigned |
 |---|---|---|
@@ -30,7 +30,7 @@ The heuristic cut the search space by 85% and **kept every known seam**. The top
 
 **Recall = 100% on known seams.** No money-path or auth seam was missed — the expensive failure mode did not occur.
 
-### Precision — did NOT flood, but has a soft spot on UI surfaces
+### Precision: did NOT flood, but has a soft spot on UI surfaces
 
 The 9 rejections were all correct non-seams — the Stripe client init (`lib/stripe.ts`), `config/dashboard.ts`, `navbar`/`mobile-nav`, a profile form, the presentational billing page, and three loading/spinner files. So it did **not** flag "every component that imports auth" — the discipline largely held.
 
@@ -41,15 +41,15 @@ Of the **19 flagged**, by directory: `actions/` 4, `app/api/` 3, `lib/`+root 5 �
 
 **Precision ≈ 63–79%** (strict vs. lenient on route-guard layouts). Not a flood — but not razor-sharp: the judge flags the UI *surface* of a risky operation, not only its server-side *implementation*. Notably inconsistent (rejected `user-name-form.tsx`, accepted `user-role-form.tsx`).
 
-### Classification accuracy — strong on real seams
+### Classification accuracy: strong on real seams
 
 money_path for all Stripe/billing/webhook/portal/subscription; auth for role/middleware/auth; data_deletion for the user DELETE route. No `pii`/`safety_delivery` hallucinated (correct — none exist here). Minor: `update-user-name` → `auth` is over-classified (it's a low-stakes profile mutation that happens to be auth-guarded); `open-customer-portal` → `money_path` is defensible though its real bug is an auth/IDOR issue.
 
-## Cost — detection finally measured
+## Cost: detection finally measured
 
 The heuristic judged only **15% of files** (28 of 184), making detection **~6.5× cheaper** than LLM-reading every file. That's the point of the pre-filter: it keeps a whole-repo first pass cheap enough to be practical, and this was the previously-unmetered cost line, now measured.
 
-## Decision — GO, with one refinement
+## Decision: GO, with one refinement
 
 **The hybrid approach is sound enough to build.** It hit every known seam (recall 100%), did not flood (rejected the obvious noise), classified real seams accurately, and detection is cheap enough to run as a whole-repo first pass. This clears the same bar the review cleared before Build 2.
 
