@@ -105,9 +105,13 @@ const CONTENT_SIGNALS: Signal[] = [
   // the content signal isn't blind to non-JS auth (the non-Stripe finding).
   [/next-auth|getServerSession|passport|devise|omniauth|from ["']@?\/?auth["']|authlib|jsonwebtoken|import jwt|jwt\.(decode|encode)|authenticate\(|set_password|check_password|permission_classes|IsAuthenticated|@login_required|before_action|current_user|request\.user/i, 2, "import:auth"],
   [/"use server"|'use server'/, 1, "server-action"],
-  [/authorize|refund|chargeback|RLS|row.level.security/i, 2, "kw:authorize/refund"],
+  // "authoriz" not preceded by "un" (so "unauthorized" in error handling does not
+  // fire), and RLS on word boundaries only (so the letters inside "URLs" do not).
+  [/(?<!un)authoriz|refund|chargeback|\bRLS\b|row.level.security/i, 2, "kw:authorize/refund"],
   [/password|bcrypt|argon2|hashpw|set_password/i, 1, "kw:credential"],
-  [/DELETE FROM|DROP TABLE|TRUNCATE/i, 2, "kw:sql-destruct"],
+  // TRUNCATE only in statement shape (TRUNCATE TABLE / TRUNCATE ONLY), so the
+  // bare word (e.g. a CSS utility class) does not fire.
+  [/DELETE FROM|DROP TABLE|TRUNCATE\s+(TABLE|ONLY)\b/i, 2, "kw:sql-destruct"],
 ];
 
 /**
@@ -135,6 +139,22 @@ const UI_PATH = /(^|\/)(components?|ui|widgets?)\//i;
 const UI_FILE = /(^|\/)(page|layout|loading|error|not-found|template|index)\.(t|j)sx$/i;
 const UI_EXT = new Set([".html", ".erb", ".vue", ".svelte", ".hbs", ".ejs", ".haml"]);
 
+/**
+ * Non-runtime paths: tests, type-only files, seeds, stories, and email
+ * templates. They carry domain vocabulary without deciding runtime outcomes,
+ * so they take the same score penalty as UI surfaces in keyword/path scoring.
+ * The penalty applies to keyword/path scoring only: the risk-shape safety net
+ * evaluates these files unpenalized, so a genuinely risk-shaped test file
+ * remains rescuable (see scoreSource).
+ */
+const NON_RUNTIME_PATH = /(^|\/)(tests?|__tests__|e2e|specs?|stories|storybook|seeds?|templates)\//i;
+const NON_RUNTIME_FILE = /\.(test|spec|stories)\.[a-z]+$|\.types\.[a-z]+$/i;
+
+/** Is this file test, type-only, seed, story, or template material? */
+function isNonRuntimeFile(path: string): boolean {
+  return NON_RUNTIME_PATH.test(path) || NON_RUNTIME_FILE.test(path);
+}
+
 /** Default score a file must reach to become a candidate. */
 export const DEFAULT_CANDIDATE_THRESHOLD = 3;
 /** Risk-shapes a non-UI file must hit to be rescued by the safety net alone. */
@@ -158,9 +178,13 @@ export function scoreSource(path: string, content: string): Candidate {
   for (const [re, w, label] of CONTENT_SIGNALS) if (re.test(content)) { score += w; hits.push(label); }
 
   const ui = isUiFile(path);
+  const nonRuntime = !ui && isNonRuntimeFile(path);
   if (ui) {
     score -= 3; // REFINEMENT: push UI-trigger surfaces below threshold.
     hits.push("penalty:ui");
+  } else if (nonRuntime) {
+    score -= 3; // tests/types/seeds/stories/templates score like UI in the keyword pass
+    hits.push("penalty:non-runtime");
   } else if (SERVER_PATH.test(path) || BACKEND_EXTENSIONS.has(extname(path))) {
     // REFINEMENT: server code is where real seams live — by JS path convention
     // OR by being written in a backend language (generalizes off the JS stack).
@@ -174,7 +198,13 @@ export function scoreSource(path: string, content: string): Candidate {
     if (re.test(content)) { shapes += 1; hits.push(label); }
   }
   const rescued = !ui && shapes >= SAFETY_NET_MIN_SHAPES;
-  if (rescued) score += shapes; // lift to candidacy on structural risk alone
+  if (rescued) {
+    score += shapes; // lift to candidacy on structural risk alone
+    // The safety net evaluates non-runtime files unpenalized: a rescued
+    // test/seed/template gets the keyword-pass penalty returned, so rescue
+    // behaves the same with or without the non-runtime classification.
+    if (nonRuntime) score += 3;
+  }
 
   return {
     path,
