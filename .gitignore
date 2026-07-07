@@ -144,3 +144,6 @@ vite.config.ts.timestamp-*
 
 # Claude Code session/agent data — never commit
 .claude/
+
+# SeamStress scaffold session notes, never commit
+.seamstress/session-notes.md
