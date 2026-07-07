@@ -72,12 +72,23 @@ function kindOf(map: SeamMap, seamId: string): SeamKind {
   return map.seams.find((s) => s.id === seamId)?.kind ?? "other";
 }
 
+/**
+ * Neutralize control characters in a repo-controlled path before interpolating
+ * it into the markdown report. A repository controls its own file paths, and a
+ * path may legally contain newlines and other control bytes; without this a
+ * crafted filename could inject markdown structure into the report. The HTML
+ * report neutralizes separately via {@link escapeHtml}.
+ */
+function mdSafePath(path: string): string {
+  return path.replace(/[\u0000-\u001f]/g, " ");
+}
+
 /** Render the quoted-code evidence for a finding, if any. */
 function evidenceBlock(verification: VerificationResult | undefined): string {
   const quote = verification?.evidence?.[0]?.quotedCode?.trim();
   if (!quote) return "";
   const loc = verification?.evidence?.[0]?.location;
-  const where = loc ? ` (${loc.path}${loc.startLine ? `:${loc.startLine}` : ""})` : "";
+  const where = loc ? ` (${mdSafePath(loc.path)}${loc.startLine ? `:${loc.startLine}` : ""})` : "";
   return `  - **Proof from your code${where}:**\n\n    \`\`\`\n    ${quote.replace(/\n/g, "\n    ")}\n    \`\`\`\n`;
 }
 
@@ -97,7 +108,7 @@ function renderFinding(map: SeamMap, finding: Finding, verifications: Verificati
 
   return (
     `### ${BLAST_LABEL[finding.blastRadius]} — ${softenJargon(finding.description)}\n\n` +
-    `  - **Where:** \`${where}\`\n` +
+    `  - **Where:** \`${mdSafePath(where)}\`\n` +
     `  - **Area:** ${KIND_LABEL[kind]}\n` +
     consequenceLine +
     evidenceBlock(v) +
@@ -227,7 +238,7 @@ export function renderSeamMap(map: SeamMap): string {
   for (const seam of map.seams) {
     const n = verified.filter((f) => f.seamId === seam.id).length;
     const status = n > 0 ? `**${n} verified issue${n === 1 ? "" : "s"}**` : "no verified issues";
-    lines.push(`- ${KIND_LABEL[seam.kind]} — \`${seam.sources[0]?.path ?? seam.label}\` — ${status}`);
+    lines.push(`- ${KIND_LABEL[seam.kind]} — \`${mdSafePath(seam.sources[0]?.path ?? seam.label)}\` — ${status}`);
   }
   lines.push("");
 

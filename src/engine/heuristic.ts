@@ -38,7 +38,7 @@
  *    discard the non-obvious seams the tool exists to catch.
  */
 
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync, readdirSync, statSync, lstatSync } from "node:fs";
 import { join, relative, basename, extname } from "node:path";
 
 /** Source extensions we scan — broad enough for non-JS stacks (the generalize test). */
@@ -157,6 +157,8 @@ function isNonRuntimeFile(path: string): boolean {
 
 /** Default score a file must reach to become a candidate. */
 export const DEFAULT_CANDIDATE_THRESHOLD = 3;
+/** Default cap on files scored, as a runaway guard on huge repos. */
+export const DEFAULT_MAX_FILES = 5000;
 /** Risk-shapes a non-UI file must hit to be rescued by the safety net alone. */
 export const SAFETY_NET_MIN_SHAPES = 2;
 
@@ -226,7 +228,13 @@ export interface ScanOptions {
 /** Recursively list scannable source files under a directory. */
 function listSourceFiles(root: string, dir: string, acc: string[], cap: number): void {
   if (acc.length >= cap) return;
-  for (const entry of readdirSync(dir)) {
+  let entries: string[];
+  try {
+    entries = readdirSync(dir);
+  } catch {
+    return; // unreadable directory (EACCES, ENAMETOOLONG, ...) — skip, never abort
+  }
+  for (const entry of entries) {
     if (acc.length >= cap) return;
     const full = join(dir, entry);
     let st;
@@ -237,6 +245,16 @@ function listSourceFiles(root: string, dir: string, acc: string[], cap: number):
     }
     if (st.isDirectory()) {
       if (SKIP_DIRS.has(entry) || entry.startsWith(".")) continue;
+      // Do not follow directory symlinks: they can resolve outside the scan
+      // root (reading files the caller never pointed at) or form cycles.
+      // statSync above follows the link; lstatSync sees the link itself.
+      let lst;
+      try {
+        lst = lstatSync(full);
+      } catch {
+        continue;
+      }
+      if (lst.isSymbolicLink()) continue;
       listSourceFiles(root, full, acc, cap);
     } else if (SOURCE_EXTENSIONS.has(extname(entry)) && !entry.endsWith(".d.ts")) {
       acc.push(full);
@@ -250,7 +268,7 @@ function listSourceFiles(root: string, dir: string, acc: string[], cap: number):
  */
 export function scanRepo(repoPath: string, options: ScanOptions = {}): Candidate[] {
   const threshold = options.threshold ?? DEFAULT_CANDIDATE_THRESHOLD;
-  const cap = options.maxFiles ?? 5000;
+  const cap = options.maxFiles ?? DEFAULT_MAX_FILES;
 
   const files: string[] = [];
   listSourceFiles(repoPath, repoPath, files, cap);
@@ -277,10 +295,15 @@ export function readCandidateSource(repoPath: string, candidate: Candidate): str
 
 /**
  * Count scannable source files and tally them by extension. Drives the map
- * headline ("scanned N files") and the coverage signal (which language/stack
- * dominates). Uses the same enumeration as {@link scanRepo}.
+ * headline and the coverage signal (which language/stack dominates). `scanned`
+ * is how many files scanRepo would actually score under `maxFiles`; `total` is
+ * how many exist. They differ only past the cap, and the headline reports
+ * `scanned` so it never claims to have scored files the cap skipped.
  */
-export function sourceFileStats(repoPath: string): { total: number; byExt: Record<string, number> } {
+export function sourceFileStats(
+  repoPath: string,
+  maxFiles: number = DEFAULT_MAX_FILES,
+): { total: number; byExt: Record<string, number>; scanned: number } {
   const files: string[] = [];
   listSourceFiles(repoPath, repoPath, files, 100_000);
   const byExt: Record<string, number> = {};
@@ -288,7 +311,7 @@ export function sourceFileStats(repoPath: string): { total: number; byExt: Recor
     const ext = extname(f);
     byExt[ext] = (byExt[ext] ?? 0) + 1;
   }
-  return { total: files.length, byExt };
+  return { total: files.length, byExt, scanned: Math.min(files.length, maxFiles) };
 }
 
 /** Human-friendly label for a candidate, used as a seam label fallback. */

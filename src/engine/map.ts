@@ -208,7 +208,7 @@ export async function mapSeams(repoPath: string, options: MapSeamsOptions): Prom
 
   return {
     repoPath,
-    filesScanned: stats.total,
+    filesScanned: stats.scanned,
     candidatesFound: detection.candidatesFound,
     seams: detection.seams,
     review,
