@@ -45,6 +45,10 @@ export { sourceFileStats } from "./heuristic.js";
 // --- Detector (Build 3) ---
 export { detectSeams } from "./detector.js";
 export type { DetectSeamsOptions, DetectSeamsResult } from "./detector.js";
+
+// --- Run context (measurement charter, slice 1a) ---
+export { resolveRunContext, isCapturePermitted } from "./run-context.js";
+export type { RunContext } from "./run-context.js";
 export {
   scanRepo,
   scoreSource,

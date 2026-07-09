@@ -41,6 +41,7 @@ import type { DetectorConfig } from "./detection.js";
 import type { ModelCaller, ReviewConfig } from "./config.js";
 import { detectSeams } from "./detector.js";
 import { sourceFileStats } from "./heuristic.js";
+import type { RunContext } from "./run-context.js";
 import { mergeReviews, reviewSeam } from "./pipeline.js";
 import { DEFAULT_REVIEW_CONCURRENCY, mapWithConcurrency } from "./concurrency.js";
 
@@ -82,6 +83,8 @@ export interface SeamMap {
   totalCost: Cost;
   /** The honest stack-coverage signal. */
   coverage: CoverageSignal;
+  /** The resolved run context this map was built under. */
+  runContext: RunContext;
 }
 
 /** Options for {@link mapSeams}. */
@@ -97,6 +100,8 @@ export interface MapSeamsOptions {
   concurrency?: number;
   /** Cap candidates judged during detection. */
   maxCandidates?: number;
+  /** Whose code this run examines; unspecified resolves to "user" (no-capture). */
+  runContext?: RunContext;
 }
 
 /** Manifest files that pin a stack, in priority order. */
@@ -179,6 +184,7 @@ export async function mapSeams(repoPath: string, options: MapSeamsOptions): Prom
     client,
     ...(options.detectorConfig ? { config: options.detectorConfig } : {}),
     ...(options.maxCandidates !== undefined ? { maxCandidates: options.maxCandidates } : {}),
+    ...(options.runContext !== undefined ? { runContext: options.runContext } : {}),
   });
 
   // Stage 2 — review with bounded concurrency + per-seam isolation.
@@ -217,5 +223,6 @@ export async function mapSeams(repoPath: string, options: MapSeamsOptions): Prom
     reviewCost: review.cost,
     totalCost: aggregateCost(totalUsages),
     coverage,
+    runContext: detection.runContext,
   };
 }

@@ -40,6 +40,7 @@
 
 import { readFileSync, readdirSync, statSync, lstatSync } from "node:fs";
 import { join, relative, basename, extname } from "node:path";
+import type { RunContext } from "./run-context.js";
 
 /** Source extensions we scan — broad enough for non-JS stacks (the generalize test). */
 const SOURCE_EXTENSIONS = new Set([
@@ -223,6 +224,12 @@ export interface ScanOptions {
   threshold?: number;
   /** Cap on files scanned, as a runaway guard on huge repos. */
   maxFiles?: number;
+  /**
+   * Whose code this run is examining (see {@link RunContext}); unspecified
+   * resolves to "user" — the no-capture side. Inert today: the measurement
+   * capture slice reads it at the scoring loop, gated on the allowlist.
+   */
+  runContext?: RunContext;
 }
 
 /** Recursively list scannable source files under a directory. */

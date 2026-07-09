@@ -95,6 +95,7 @@ function mapFrom(specs: Spec[]): SeamMap {
     reviewCost: ZERO_COST,
     totalCost: ZERO_COST,
     coverage: { stack: "JavaScript/TypeScript", wellTuned: true, caveat: null },
+    runContext: "test",
   };
 }
 

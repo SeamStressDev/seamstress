@@ -91,6 +91,7 @@ function mapFrom(
     reviewCost: ZERO_COST,
     totalCost: ZERO_COST,
     coverage: { stack: "JavaScript/TypeScript", wellTuned: true, caveat: null },
+    runContext: "test",
   };
 }
 
@@ -255,6 +256,18 @@ describe("mapSeams — end-to-end orchestration", () => {
       9,
     );
     expect(map.erroredSeams).toHaveLength(0);
+    // Run-context (charter slice 1a): a programmatic call with no context —
+    // like every CLI today — reports the safe default.
+    expect(map.runContext).toBe("user");
+  });
+
+  it("threads an explicit run context through to the map (charter slice 1a)", async () => {
+    const repo = makeRepo({
+      "package.json": '{"name":"x"}',
+      "actions/role.ts": '"use server";\nimport { auth } from "@/auth";\nexport async function setRole(userId, role) { if (session.id === userId) db.user.update(); }',
+    });
+    const map = await mapSeams(repo, { client: fakeClient(), runContext: "benchmark" });
+    expect(map.runContext).toBe("benchmark");
   });
 });
 

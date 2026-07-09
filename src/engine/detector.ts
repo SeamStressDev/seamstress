@@ -32,6 +32,8 @@ import type {
   DetectorConfig,
 } from "./detection.js";
 import type { ModelCaller } from "./config.js";
+import { resolveRunContext } from "./run-context.js";
+import type { RunContext } from "./run-context.js";
 
 /** Options for {@link detectSeams}. */
 export interface DetectSeamsOptions {
@@ -43,6 +45,8 @@ export interface DetectSeamsOptions {
   scan?: ScanOptions;
   /** Hard cap on candidates judged, bounding LLM cost on large repos. */
   maxCandidates?: number;
+  /** Whose code this run examines; unspecified resolves to "user" (no-capture). */
+  runContext?: RunContext;
 }
 
 /** A detection run plus the raw candidate list (for reporting recall/precision). */
@@ -51,6 +55,8 @@ export interface DetectSeamsResult extends DetectionResult {
   candidates: Candidate[];
   /** Total candidates the heuristic produced before the cap. */
   candidatesFound: number;
+  /** The resolved run context this detection ran under. */
+  runContext: RunContext;
 }
 
 /**
@@ -64,7 +70,9 @@ export async function detectSeams(
 ): Promise<DetectSeamsResult> {
   const config = options.config ?? DEFAULT_DETECTOR_CONFIG;
 
-  const allCandidates = scanRepo(repoPath, options.scan ?? {});
+  // Resolve once at the boundary; the top-level option wins over scan options.
+  const runContext = resolveRunContext(options.runContext ?? options.scan?.runContext);
+  const allCandidates = scanRepo(repoPath, { ...(options.scan ?? {}), runContext });
   const candidates =
     options.maxCandidates !== undefined
       ? allCandidates.slice(0, options.maxCandidates)
@@ -85,5 +93,6 @@ export async function detectSeams(
     ...detection,
     candidates,
     candidatesFound: allCandidates.length,
+    runContext,
   };
 }

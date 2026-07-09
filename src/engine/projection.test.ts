@@ -86,6 +86,7 @@ const map: SeamMap = {
   reviewCost: ZERO_COST,
   totalCost: ZERO_COST,
   coverage: { stack: "JavaScript/TypeScript", wellTuned: true, caveat: null },
+  runContext: "test",
 };
 
 describe("projectSeamMap — the --json emitter", () => {
