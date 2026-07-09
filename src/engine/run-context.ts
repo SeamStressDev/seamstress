@@ -33,6 +33,18 @@
 export type RunContext = "benchmark" | "self-audit" | "gift-run" | "user" | "test";
 
 /**
+ * The full closed set of context values, for CLI flag parsing: a context is
+ * always chosen from this list, never accepted as free text.
+ */
+export const RUN_CONTEXTS: readonly RunContext[] = [
+  "benchmark",
+  "self-audit",
+  "gift-run",
+  "user",
+  "test",
+];
+
+/**
  * Resolve an optional context. Unspecified resolves to "user" — the no-capture
  * side — unconditionally.
  */

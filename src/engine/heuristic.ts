@@ -40,6 +40,7 @@
 
 import { readFileSync, readdirSync, statSync, lstatSync } from "node:fs";
 import { join, relative, basename, extname } from "node:path";
+import { isCapturePermitted } from "./run-context.js";
 import type { RunContext } from "./run-context.js";
 
 /** Source extensions we scan — broad enough for non-JS stacks (the generalize test). */
@@ -127,6 +128,23 @@ const RISK_SHAPES: Signal[] = [
   [/\b(balance|amount|price|total|cost|credits?|quota|wallet)\b[^\n]{0,40}[-+*/]=?/i, 1, "shape:money-math"],
   [/\b(charge|capture|payout|transfer|debit|credit)\b[^\n]{0,40}\(/i, 1, "shape:value-move"],
 ];
+
+/**
+ * The complete closed vocabulary of hit labels {@link scoreSource} can emit:
+ * the three signal tables plus the classifier labels pushed directly in the
+ * scoring pass. Exported for the measurement sink's closed-schema validation
+ * (charter slice 1b): every ledger key must come from THIS set, never from
+ * scanned content. A new signal label added to a table above is a member
+ * automatically; a label invented anywhere else is rejected at the sink.
+ */
+export const SIGNAL_LABELS: ReadonlySet<string> = new Set([
+  ...PATH_SIGNALS.map(([, , label]) => label),
+  ...CONTENT_SIGNALS.map(([, , label]) => label),
+  ...RISK_SHAPES.map(([, , label]) => label),
+  "penalty:ui",
+  "penalty:non-runtime",
+  "bonus:server",
+]);
 
 /** Server-side path markers — every real seam in Phase 2 lived under one. */
 const SERVER_PATH = /(^|\/)(actions?|api|routes?|controllers?|services?|handlers?|lib|server|middleware|auth|webhooks?|jobs?|tasks?|workers?|models?|db|database|repositories|resolvers|graphql|usecases?|domain)(\/|\.|$)/i;
@@ -218,6 +236,22 @@ export function scoreSource(path: string, content: string): Candidate {
   };
 }
 
+/**
+ * Measurement capture hook (charter slice 1b). When present AND the run
+ * context is capture-permitted, {@link scanRepo} feeds it the full per-file
+ * scoring structure — including the below-threshold files the return value
+ * discards. The records live only in the session's memory for the duration of
+ * the run so late-arriving verdicts can join back to files; they are
+ * aggregated and destroyed before anything persists. No per-file record ever
+ * touches disk.
+ */
+export interface ScanCapture {
+  /** The threshold this scan filtered at (recorded on the aggregate row). */
+  noteThreshold(threshold: number): void;
+  /** One scored file, pre-filter. Memory-only; never serialized. */
+  recordFile(candidate: Candidate): void;
+}
+
 /** Options for {@link scanRepo}. */
 export interface ScanOptions {
   /** Candidate threshold (default {@link DEFAULT_CANDIDATE_THRESHOLD}). */
@@ -226,10 +260,17 @@ export interface ScanOptions {
   maxFiles?: number;
   /**
    * Whose code this run is examining (see {@link RunContext}); unspecified
-   * resolves to "user" — the no-capture side. Inert today: the measurement
-   * capture slice reads it at the scoring loop, gated on the allowlist.
+   * resolves to "user" — the no-capture side. The measurement capture slice
+   * reads it at the scoring loop, gated on the allowlist.
    */
   runContext?: RunContext;
+  /**
+   * Measurement capture session (slice 1b). Fed ONLY when
+   * {@link isCapturePermitted} holds for `runContext` — the gate lives at the
+   * capture site, so a session handed in under a non-permitted context
+   * records nothing.
+   */
+  capture?: ScanCapture;
 }
 
 /** Recursively list scannable source files under a directory. */
@@ -277,6 +318,16 @@ export function scanRepo(repoPath: string, options: ScanOptions = {}): Candidate
   const threshold = options.threshold ?? DEFAULT_CANDIDATE_THRESHOLD;
   const cap = options.maxFiles ?? DEFAULT_MAX_FILES;
 
+  // Capture is double-gated: a session only exists for allowlisted contexts
+  // (CaptureSession.begin returns null otherwise), AND this site re-checks the
+  // predicate, so a session handed in under a non-permitted or unspecified
+  // context records nothing. The gate lives AT the site, not upstream of it.
+  const capture =
+    options.capture !== undefined && isCapturePermitted(options.runContext)
+      ? options.capture
+      : undefined;
+  capture?.noteThreshold(threshold);
+
   const files: string[] = [];
   listSourceFiles(repoPath, repoPath, files, cap);
 
@@ -289,6 +340,7 @@ export function scanRepo(repoPath: string, options: ScanOptions = {}): Candidate
       continue; // unreadable — skip, never abort
     }
     const candidate = scoreSource(relative(repoPath, file), content);
+    capture?.recordFile(candidate);
     if (candidate.score >= threshold) scored.push(candidate);
   }
 

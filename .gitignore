@@ -147,3 +147,7 @@ vite.config.ts.timestamp-*
 
 # SeamStress scaffold session notes, never commit
 .seamstress/session-notes.md
+
+# Measurement sink (charter slice 1b) — local until an explicit commit ruling;
+# rows are k-suppressed aggregates, but conservative wins while unqueryable
+benchmark/results/signal-aggregates.jsonl

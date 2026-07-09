@@ -47,7 +47,7 @@ export { detectSeams } from "./detector.js";
 export type { DetectSeamsOptions, DetectSeamsResult } from "./detector.js";
 
 // --- Run context (measurement charter, slice 1a) ---
-export { resolveRunContext, isCapturePermitted } from "./run-context.js";
+export { resolveRunContext, isCapturePermitted, RUN_CONTEXTS } from "./run-context.js";
 export type { RunContext } from "./run-context.js";
 export {
   scanRepo,
@@ -56,8 +56,27 @@ export {
   candidateLabel,
   DEFAULT_CANDIDATE_THRESHOLD,
   SAFETY_NET_MIN_SHAPES,
+  SIGNAL_LABELS,
 } from "./heuristic.js";
-export type { Candidate, ScanOptions } from "./heuristic.js";
+export type { Candidate, ScanOptions, ScanCapture } from "./heuristic.js";
+
+// --- Measurement sink (measurement charter, slice 1b — capture only) ---
+export {
+  CaptureSession,
+  registerReviewVerdicts,
+  mergeTallies,
+  emitAggregateRow,
+  validateAggregateRow,
+  appendAggregateRow,
+  SUPPRESSION_K,
+  AGGREGATE_LEDGER_RELPATH,
+} from "./measurement-sink.js";
+export type {
+  AggregateRow,
+  AggregateTally,
+  CaptureContext,
+  SignalCell,
+} from "./measurement-sink.js";
 export {
   judgeCandidate,
   judgeCandidates,

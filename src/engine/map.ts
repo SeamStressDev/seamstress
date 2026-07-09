@@ -41,6 +41,7 @@ import type { DetectorConfig } from "./detection.js";
 import type { ModelCaller, ReviewConfig } from "./config.js";
 import { detectSeams } from "./detector.js";
 import { sourceFileStats } from "./heuristic.js";
+import type { ScanCapture } from "./heuristic.js";
 import type { RunContext } from "./run-context.js";
 import { mergeReviews, reviewSeam } from "./pipeline.js";
 import { DEFAULT_REVIEW_CONCURRENCY, mapWithConcurrency } from "./concurrency.js";
@@ -102,6 +103,13 @@ export interface MapSeamsOptions {
   maxCandidates?: number;
   /** Whose code this run examines; unspecified resolves to "user" (no-capture). */
   runContext?: RunContext;
+  /**
+   * Measurement capture session (slice 1b), threaded to the detection scan.
+   * Fed only when the run context is capture-permitted — the gate lives at
+   * the scan site. The CALLER owns verdict registration and the flush;
+   * mapSeams itself never writes measurement data.
+   */
+  capture?: ScanCapture;
 }
 
 /** Manifest files that pin a stack, in priority order. */
@@ -185,6 +193,7 @@ export async function mapSeams(repoPath: string, options: MapSeamsOptions): Prom
     ...(options.detectorConfig ? { config: options.detectorConfig } : {}),
     ...(options.maxCandidates !== undefined ? { maxCandidates: options.maxCandidates } : {}),
     ...(options.runContext !== undefined ? { runContext: options.runContext } : {}),
+    ...(options.capture !== undefined ? { scan: { capture: options.capture } } : {}),
   });
 
   // Stage 2 — review with bounded concurrency + per-seam isolation.
