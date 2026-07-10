@@ -85,3 +85,33 @@ cells you would need are deliberately not there yet.
 
 Append-only: rows are never edited or deleted. A row's `suppression_k` and
 `engine_commit` say how to read it; a future k change never invalidates old rows.
+
+## Validation record: the instrument works and is waiting for data
+
+**2026-07-10 — exercised on a real self-audit run** (`npm run map -- src
+--context self-audit`, engine `eb0d771`, full pipeline, $0.05). Verified against
+the artifacts, not the code:
+
+- The capture path executed end-to-end: gate → scan-site feed → in-memory
+  verdict join → suppression → single-row append.
+- The written row is well-formed and closed-schema, confirmed by inspecting the
+  bytes on disk: it passes the validator after a JSON round-trip, and every
+  string in it is a closed-vocabulary key, an enum value, the date, or the
+  commit hash — zero paths, zero free text. One clarification worth recording:
+  the no-path guarantee holds by **vocabulary membership**, not by character
+  absence — the compiled signal label `kw:authorize/refund` legitimately
+  carries a `/`.
+- Suppression behaved per the ladders: four signals with row totals ≥ k kept
+  their names but collapsed to totals (each had a sub-k band cell); 24 firings
+  across sub-k signals pooled namelessly into `other_signals`; the histogram
+  collapsed to a single outcome total (the strong band held 3 files < k).
+- No per-file record persisted: a whole-tree file snapshot before/after the run
+  differs in exactly one file — this ledger.
+- Detection unchanged: clean tree, candidates identical to a $0 heuristic-only
+  dry scan, capture-only confirmed.
+- At n = 1 repo the row is near-empty of decision-usable strata — no band
+  splits, no verdict mass. **That is the designed pass condition** per the
+  trust status above, not a defect. (Instrument-sensitivity flicker, noted
+  only, no action, not queryable: `shape:money-math` fired on 27/54 files of a
+  codebase with no money paths — the engine's own cost-accounting vocabulary
+  trips it. A1 material for when the sink is queryable.)
